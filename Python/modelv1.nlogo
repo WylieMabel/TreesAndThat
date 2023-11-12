@@ -1,19 +1,16 @@
 globals [
-  farmer-info ;; represents a record of all turtle locations - Mabel's rubbbish workaround for links :)
-  color-options ;; colors of different farms
-  desperation-threshold ;;
+  desperation-threshold
   jealousy-tolerance
   grace-period-length
 ]
 
 undirected-link-breed [neighbour-links neighbour-link] ;; between farmers
 undirected-link-breed [field-owner-links field-owner-link] ;; between fields and farmers
+breed [fields field] ;; order of breed declarations determines display order
 breed [farmers farmer]
-breed [fields field]
 
 farmers-own [
   farm-color
-  farmer-id
   lead-farmer ;; represents if they are lead farmer or not - bool
   grace-period ;; if in grace period - number - set to 3 in grace period then -1 each run of model
   total-yield ;;
@@ -23,9 +20,8 @@ farmers-own [
 ]
 
 fields-own [
-  distance-to-nearest-farmer
   yield
-  owner
+  owner-id
 ]
 
 patches-own [
@@ -34,97 +30,110 @@ patches-own [
 ]
 
 to setup
-  ca
+  clear-all
+
   create-farmers 3000 ;; creates 3000 "farmers"
-  set color-options base-colors
-  let index 0
   ask farmers [
-    ;; creates each "farmer" as a black dot, gives it a colour and moves it to an unoccupied patch and records this
-    set shape "circle"
+  ;; sets each farmer as a black figure, gives it a colour and moves it to an unoccupied patch
+    set shape "person"
     set color black
+    set size 0.7
     move-to one-of patches with [not any? farmers-here]
     set farm-color one-of base-colors
-    set farmer-id index
-    set index index + 1
     set lead-farmer false
     set usingWSA false
     set knowsWSA false
-    ;; initialise lead farmers and theur neighbours knows wsa
   ]
-  ask n-of 20 farmers [
-    set lead-farmer true
-    set usingWSA true
-    set knowsWSA true
-  ]
+
   ask patches [
-    ;; initialises the patches
+  ;; initialises the patches
     set soil-moisture 100
     set ground-cover 50
     set pcolor grey
   ]
+
   create-fields 10200 [
   ;; creates 10200 "fields"
-    set distance-to-nearest-farmer 999
     set shape "square"
     move-to one-of patches with [not any? fields-here]
-    hide-turtle
- ]
-  create-fields 1 [
-    ;; creates last centre "field"
-    set distance-to-nearest-farmer 999
-    set shape "square"
+    set yield 100
     hide-turtle
   ]
-  set color-options base-colors
-  set-neighbours-of-wsa
+
+  create-fields 1 [
+  ;; creates last centre "field"
+    set shape "square"
+    set yield 100
+    hide-turtle
+  ]
+
   reset-ticks
 end
 
 to allocate-fields
-    ask fields [
-    ;; each field finds the farmer it is closest to and turns the field/patch that colour
-        let closest-farmer min-one-of farmers [distance myself]
-        set color [farm-color] of closest-farmer
-        set owner [farmer-id] of closest-farmer
-        set yield 100
-        create-field-owner-link-with closest-farmer
-        show-turtle
+  ask fields [
+    ;; each field finds the farmer it is closest to and turns the field that colour
+    let closest-farmer min-one-of farmers [distance myself]
+    set color [farm-color] of closest-farmer
+    set owner-id [who] of closest-farmer
+    create-field-owner-link-with closest-farmer
+    show-turtle
   ]
-  find-neighbours
 end
 
 to find-neighbours
-  ask fields [
-    ;; each field finds if it have neighbouring fields of a different farmer - TBC
-        let neighbour-info []
-        let neighbouring-fields fields with-min [distance myself]
-        foreach neighbouring-fields [ other-field -> ifelse [owner] of other-field != [owner] of myself
-      [
-        ;;ask one-of field-owner-links other-end [
-        ;;  create-neighbour-link-with other-end of other-field
-        ;;]
-        set neighbour-info lput (list [owner] of other-field [owner] of myself) neighbour-info
-      ][
-      ]
-    ]
+  ;; find farmer neighbours by first sorting fields into a list
+  ;; this means we can process fields in order and only ever check the field above and to the right (cos we know we already did the others)
+  ;; slightly intense approach, but it's a MASSIVE optimisation (2 mins down to 2 seconds)
 
-    foreach neighbour-info [farm-pair -> ask farmers with [item 0 farm-pair]  [
-      ifelse link-neighbor? one-of farmers with [item 1 farm-pair]
-      [][
-        create-links-with other farmers with [item 1 farm-pair]
+  ;; sort fields from bottom left corner
+  let sorted-fields [self] of fields
+  set sorted-fields sort-by [ [field1 field2] ->
+    [pycor] of field1 < [pycor] of field2
+    or ([pycor] of field1 = [pycor] of field2 and [pxcor] of field1 < [pxcor] of field2)
+  ] sorted-fields
+
+  let index 0
+  let num-fields length sorted-fields
+
+  ;; process fields in order, only gather neighbours when this-field is not on the edge of the map
+  while [index < num-fields] [
+    let this-field item index sorted-fields
+    let neighbour-fields []
+    if [pxcor] of this-field < max-pxcor [set neighbour-fields lput (item (index + 1) sorted-fields) neighbour-fields]
+    if [pycor] of this-field < max-pycor [set neighbour-fields lput (item (index + world-width) sorted-fields) neighbour-fields]
+
+    ;; check if other farmer is an unknown neighbour, and create link
+    foreach neighbour-fields [ neighbour-field ->
+      let this-owner-id [owner-id] of this-field
+      let neighbour-id [owner-id] of neighbour-field
+      if neighbour-id != this-owner-id [
+        let existing-link (neighbour-link neighbour-id this-owner-id)
+        if existing-link = nobody [
+          ask farmer this-owner-id [create-neighbour-link-with farmer neighbour-id]
+        ]
       ]
-       ]
     ]
+    set index index + 1
   ]
 end
 
-to set-neighbours-of-wsa
-  ask farmers with [knowsWSA] = true [
-       ask my-neighbour-links [
-           ask other-end [
-                set knowsWSA true
-              ]
-            ]
+to assign-lead-farmers
+  ask n-of 20 farmers [
+    set lead-farmer true
+    set usingWSA true
+    set knowsWSA true
+    set color white
+  ]
+end
+
+to share-knowledge
+  ask farmers with [usingWSA = true] [
+    ask my-neighbour-links [
+      ask other-end [
+        set knowsWSA true
+      ]
+    ]
   ]
 end
 
@@ -133,55 +142,68 @@ to farming-year
   ;; hand fields to hydrology model
   ;; get back yield from model - on a field level
   ;; above 3 can be done in Python
-  ;;
+
+  ;; calculate farmer yield
   ask farmers [
-    ;; step to calculate yield (average for now)
     set total-yield sum [[yield] of other-end] of my-field-owner-links
     set average-yield mean [[yield] of other-end] of my-field-owner-links
-      ;; ignore
-    ]
+  ]
 
+  ;; make farming practice decisions
   ask farmers [
-    ifelse knowsWSA = true [
-      ifelse grace-period > 0 [
-        set grace-period grace-period - 1
-      ]
-      [
-        ;; no grace period and knowsWSA
-        let best-link max-one-of my-neighbour-links [[average-yield] of other-end]
-        let best-farmer [other-end] of best-link
-        ifelse [average-yield] of best-farmer > [average-yield] of myself + jealousy-tolerance and [usingWSA] of best-farmer != [usingWSA] of myself
-        [
-          set usingWSA [usingWSA] of best-farmer
+    ifelse grace-period > 0 [
+      set grace-period grace-period - 1
+    ][
+      if knowsWSA = true [
+        ;; no grace period and has encountered WSA
+
+        ;; desperation pathway:
+        ifelse total-yield < desperation-threshold [
+          set usingWSA not usingWSA
           set grace-period grace-period-length
         ]
-        []
+
+        ;; jealousy pathway:
+        [
+          let best-link max-one-of my-neighbour-links [[average-yield] of other-end]
+          let best-neighbour [other-end] of best-link
+          if [average-yield] of best-neighbour > average-yield + jealousy-tolerance
+          and [usingWSA] of best-neighbour != usingWSA
+          [
+            set usingWSA [usingWSA] of best-neighbour
+            set grace-period grace-period-length
+          ]
+        ]
       ]
     ]
-    []
   ]
-  ask farmers [
-    ifelse usingWSA = true
-          [
-            ask my-neighbour-links [
-              ask other-end [
-                set knowsWSA true
-              ]
-            ]
-          ]
-          [
-          ]
+
+  share-knowledge
+  apply-style
+
+  ;; lil hacky thing to force WSA spread for testing
+  ask farmers with [usingWSA = true] [
+    ask my-field-owner-links [
+      ask other-end [
+        set yield 200
+      ]
+    ]
   ]
+end
+
+to apply-style
+  ask farmers with [knowsWSA = true] [set color scale-color white 80 0 100]
+  ask farmers with [usingWSA = true] [set color white]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-210
+224
 10
-834
-635
+1545
+1332
 -1
 -1
-6.1
+13.0
 1
 10
 1
@@ -202,10 +224,10 @@ ticks
 30.0
 
 BUTTON
-53
-32
-119
-65
+142
+10
+208
+43
 setup
 setup
 NIL
@@ -219,10 +241,10 @@ NIL
 1
 
 BUTTON
-60
-93
-181
-126
+87
+49
+208
+82
 NIL
 allocate-fields
 NIL
@@ -236,12 +258,63 @@ NIL
 1
 
 BUTTON
-58
-159
-171
-192
+53
+274
+166
+307
 NIL
 farming-year
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+90
+88
+208
+121
+NIL
+find-neighbours
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+67
+127
+208
+160
+NIL
+assign-lead-farmers
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+82
+166
+208
+199
+NIL
+share-knowledge\n
 NIL
 1
 T
