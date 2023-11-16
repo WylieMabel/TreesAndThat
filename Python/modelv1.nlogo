@@ -49,7 +49,7 @@ to setup
   ;; initialises the patches
     set soil-moisture 100
     set ground-cover 50
-    set pcolor grey
+    set pcolor black
   ]
 
   create-fields 10200 [
@@ -195,15 +195,25 @@ to apply-style
   ask farmers with [knowsWSA = true] [set color scale-color white 80 0 100]
   ask farmers with [usingWSA = true] [set color white]
 end
+
+to-report test-report
+  report [(list xcor ycor yield owner-id who)] of fields
+end
+
+to update-Globals [desperation-threshold-var jealousy-tolerance-var grace-period-length-var]
+  set desperation-threshold desperation-threshold-var
+  set jealousy-tolerance jealousy-tolerance-var
+  set grace-period-length grace-period-length-var
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 224
 10
-1545
-1332
+1073
+860
 -1
 -1
-13.0
+8.33
 1
 10
 1
