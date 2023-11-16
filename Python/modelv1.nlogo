@@ -22,6 +22,7 @@ farmers-own [
 fields-own [
   yield
   owner-id
+  implementsWSA
 ]
 
 patches-own [
@@ -189,6 +190,17 @@ to farming-year
       ]
     ]
   ]
+
+  ;; farmers put info onto fields
+  ask farmers [
+    let farmerIsWSA usingWSA
+    ask my-field-owner-links [
+      ask other-end [
+        set implementsWSA farmerIsWSA
+      ]
+    ]
+  ]
+
 end
 
 to apply-style
@@ -197,7 +209,7 @@ to apply-style
 end
 
 to-report test-report
-  report [(list xcor ycor yield owner-id who)] of fields
+  report [(list xcor ycor yield owner-id who implementsWSA)] of fields ; add WSA choice to every field
 end
 
 to update-Globals [desperation-threshold-var jealousy-tolerance-var grace-period-length-var]
