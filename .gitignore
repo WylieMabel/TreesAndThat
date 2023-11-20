@@ -1,3 +1,4 @@
 *.docx
 .DS_Store
 Minutes/~$27_10.docx
+*.pyc

@@ -9,18 +9,15 @@ from landlab.components import (Vegetation, SoilMoisture, Radiation, PotentialEv
 
 
 class EcoHyd:
-    def __init__(self, WSA_array):
+    def __init__(self):
         #self.i = i
         #self.j = j
 
-        self.WSA_array = WSA_array 
-        #TODO still need to write code that converts WSA array into inputs for components.
-
         #TODO might want to make the config file something that is passed in from the outside.
         self.config = {
-            # assume Canicula starts on 1st of July and lasts for 40 days
-            'canicula_start':182,
-            'canicula_end':223, 
+            # assume Canicula starts on 1st of January and lasts for 100 days
+            'canicula_start':1,
+            'canicula_end':100, 
             # I pulled the following out of my behind, need to check with local climatology if this is sensible. 
             # Times are all in hours.
             'mean_interstorm_wet':5*24,
@@ -73,11 +70,13 @@ class EcoHyd:
         # N.B. to make this (grid-based implementation of precipitation) run, find the 'generate_uniform_precip.py' file in your 
         # LandLab distribution, and add a 'clobber=True' statement to the self.grid.add_field() call in L185 
         # (this becomes more obvious if you run the cell and look at the error message).
-        self.PD_D = PrecipitationDistribution(self.mg, mean_storm_duration=self.config['mean_storm_dry'], mean_interstorm_duration=self.config['mean_interstorm_dry'],
-                                        mean_storm_depth=0.5, total_t=40)
+        self.PD_D = PrecipitationDistribution(self.mg, mean_storm_duration=self.config['mean_storm_dry'], 
+                                              mean_interstorm_duration=self.config['mean_interstorm_dry'],
+                                              mean_storm_depth=0.5, total_t=40)
 
-        self.PD_W = PrecipitationDistribution(self.mg, mean_storm_duration=self.config['mean_storm_wet'], mean_interstorm_duration=self.config['mean_interstorm_wet'],
-                                        mean_storm_depth=0.5, total_t=325)
+        self.PD_W = PrecipitationDistribution(self.mg, mean_storm_duration=self.config['mean_storm_wet'], 
+                                              mean_interstorm_duration=self.config['mean_interstorm_wet'],
+                                              mean_storm_depth=0.5, total_t=325)
 
         #if we choose this way of assigning precipitation, there should then be a `rainfall__flux` field on our grid, although I am not sure 
         #how to access it as it is added to the entire grid rather than individual nodes.
@@ -91,17 +90,17 @@ class EcoHyd:
                                         mean_storm_depth=0.5, total_t=325)
         '''
 
-        #################################
+        #-------------------------------#
         #instantiate radiation component#
         self.rad = Radiation(self.mg, current_time=self.current_time)
         self.rad.update()
 
-        ####################################################
+        #--------------------------------------------------#
         #instantiate Potential Evapotranspiration Component#
         self.PET = PotentialEvapotranspiration(self.mg, current_time=self.current_time)
         self.PET.update() #running this initialises the output fields on the grid (which the soil moisture component needs)
 
-        #####################################
+        #-----------------------------------#
         #instantiate Soil Moisture Component#
 
         # pick some initial values for the fields that the soil moisture component requires to run - if we don't supply all of these fields, 
@@ -131,10 +130,29 @@ class EcoHyd:
 
 
 
-    def stepper(self):
+    def stepper(self, WSA_array):
         '''
         Run a one-year loop of the Ecohydrology model at a daily time step.
         '''
+
+        #biomass = np.zeros((365, 101**2))
+
+        #assume that '1' is for using WSA and '0' is for not using WSA. We also assume that WSA is only about 
+        #cover cropping for now. This means that in the dry season, we would set the 
+        #'vegetation__plant_functional_type' field to 3 (bare) in non-WSA plots, while it is 1 ('grass') in WSA
+        #plots all year round. In both cases, the biomass would have to be reset to zero at the beginning and end
+        #of the dry season/whenever the crop is changed. 
+
+        #set functional type to 1 everywhere in growing season
+        functype_growing = np.ones(self.mg.number_of_cells).astype(int)
+
+        #set functional type according to mask in non-growing season
+        functype_nongrowing = np.ones(WSA_array.shape).astype(int)
+        functype_nongrowing[WSA_array == 0] = int(3)
+        functype_nongrowing = functype_nongrowing.flatten()
+        if len(functype_nongrowing) != self.mg.number_of_cells:
+            print('grid size: ', self.mg.number_of_cells, 'wsa size:', len(functype_nongrowing))
+            raise Exception('sorry, WSA array provided has wrong shape for the grid')
 
         for i in range(0, 365):
             # Update objects
@@ -152,6 +170,19 @@ class EcoHyd:
                 self.PD_W.update()
                 self.P[i] = self.PD_W.storm_depth
 
+            # At the start of the canicula, harvest all fields and change the PFT to bare soil on 
+            # non-WSA fields
+            if Julian == self.config['canicula_start']:
+                self.mg.at_cell['vegetation__plant_functional_type'] = functype_nongrowing
+                #record the last state of the biomass before we overwrite by re-initialising ('harvesting')
+                biomass = self.mg.at_cell['vegetation__live_biomass']
+                self.VEG.initialize()
+
+            # At the end of the canicula, harvest WSA fields and set non-WSA PFT back to grass
+            if Julian == self.config['canicula_end']:
+                self.mg.at_cell['vegetation__plant_functional_type'] = functype_growing
+                self.VEG.initialize()
+                
             # calculate radiation for each field based on day of the year
             #self.rad.current_time = self.current_time
             self.rad.update()
@@ -170,25 +201,33 @@ class EcoHyd:
             # Update soil moisture component
             current_time = self.SM.update()
 
-            # Decide whether its growing season or not
-            if Julian != 364:
-                if (Julian > 100 or Julian < 300):
-                    PET_threshold = 1
-                    # 1 corresponds to ETThresholdup (begin growing season)
-                else:
-                    PET_threshold = 0
-                    # 0 corresponds to ETThresholddown (end growing season)
+            # Decide whether its growing season or not (comment this out, think it is irrelevant as the 
+            # canicula kind of is this)
+            # if Julian != 364:
+            #    if (Julian > 100 or Julian < 300):
+            #        PET_threshold = 1
+            #        # 1 corresponds to ETThresholdup (begin growing season)
+            #    else:
+            #        PET_threshold = 0
+            #        # 0 corresponds to ETThresholddown (end growing season)
 
             # Update vegetation component
-            VEG = Vegetation(self.mg, PETthreshold_switch=PET_threshold) #need to re-instatiate in order to 
-                                                                         #be able to set threshold switch;
-                                                                         #need to make sure this does not overwrite 
-                                                                         #vegetation fields from previous time steps.
-            VEG.update()
+            self.VEG.update()
 
             # Update yearly cumulative water stress data
             self.WS += (self.mg["cell"]["vegetation__water_stress"]) # need multiply this by time step in days if dt!=1day
 
             # Record time (optional)
             self.Time[i] = current_time
+
+            #print some outputs
+            print('soil moisture sat.:', self.mg.at_cell['soil_moisture__saturation_fraction'])
+            print('live biomass: ', self.mg.at_cell['vegetation__live_biomass'])
+            print('ET: ', self.mg.at_cell['surface__potential_evapotranspiration_rate'])
+            print('ET: ', self.mg.at_cell['surface__potential_evapotranspiration_rate'])
+
+            #write to biomass
+            #biomass[i, :] = self.mg.at_cell['vegetation__live_biomass']
+
+        return biomass
 
