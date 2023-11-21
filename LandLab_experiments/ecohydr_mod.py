@@ -97,6 +97,7 @@ class EcoHyd:
 
         #--------------------------------------------------#
         #instantiate Potential Evapotranspiration Component#
+        #TODO set the PET method to Priestley-Taylor once we have temperature inputs (daily Tmax, Tmin, Tavg)
         self.PET = PotentialEvapotranspiration(self.mg, current_time=self.current_time)
         self.PET.update() #running this initialises the output fields on the grid (which the soil moisture component needs)
 
@@ -183,6 +184,8 @@ class EcoHyd:
             # At the end of the canicula, harvest WSA fields and set non-WSA PFT back to grass
             if Julian == self.config['canicula_end']:
                 self.mg.at_cell['vegetation__plant_functional_type'] = functype_growing
+                #record soil moisture at end of canicula to see if WSA makes a difference
+                SM_canic_end = self.mg.at_cell['soil_moisture__saturation_fraction']
                 self.VEG.initialize()
                 
             # calculate radiation for each field based on day of the year
@@ -194,7 +197,7 @@ class EcoHyd:
             #mg["cell"]["surface__potential_evapotranspiration_30day_mean"] = EP30[Julian]
 
             # calculate PET for each field based on day of the year
-            #PET.current_time = current_time
+            #TODO read in temperature data for each day and update PET with those
             self.PET.update()
 
             # Assign spatial rainfall data
@@ -232,5 +235,5 @@ class EcoHyd:
             #write to biomass
             #biomass[i, :] = self.mg.at_cell['vegetation__live_biomass']
 
-        return biomass
+        return biomass, SM_canic_end
 
