@@ -42,7 +42,7 @@ to initialise
   set jealousy-tolerance 50
   set grace-period-length 3
 
-  create-farmers 3000
+  create-farmers 800
   ask farmers [ ; move to unoccupied patches, initialise as non-lead-farmers
     move-to one-of patches with [not any? farmers-here]
     set lead-farmer false
@@ -53,7 +53,7 @@ to initialise
 
   let x min-pxcor
   let y min-pycor
-  create-fields 10201 [ ; create field agents, one for each patch (to allow links between farmers and patches)
+  create-fields 2601 [ ; create field agents, one for each patch (to allow links between farmers and patches)
     setxy x y
     set yield 100
     set x x + 1
@@ -237,8 +237,8 @@ end
 GRAPHICS-WINDOW
 224
 10
-1747
-1534
+997
+784
 -1
 -1
 15.0
@@ -251,10 +251,10 @@ GRAPHICS-WINDOW
 0
 0
 1
--50
-50
--50
-50
+-25
+25
+-25
+25
 0
 0
 1

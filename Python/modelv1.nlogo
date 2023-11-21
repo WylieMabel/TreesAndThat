@@ -20,6 +20,7 @@ farmers-own [
   average-yield ; average yield per owned field
   usingWSA ; farmer is currently using WSA?
   knowsWSA ; farmer's neighbour has ever used WSA?
+  nextPractice ; farmer will use this practice next period (to ensure no flip-flopping)
   farm-color ; for display
 ]
 
@@ -47,6 +48,7 @@ to initialise
     set lead-farmer false
     set usingWSA false
     set knowsWSA false
+    set nextPractice false
   ]
 
   let x min-pxcor
@@ -77,6 +79,7 @@ to assign-lead-farmers ; randomly choose lead farmers, and set usingWSA to true
     set lead-farmer true
     set usingWSA true
     set knowsWSA true
+    set nextPractice true
   ]
 end
 
@@ -129,13 +132,6 @@ end
 
 ; RUNNING THE MODEL
 
-to change-practice [new-practice] ; farmer changes to new practice
-  if new-practice != usingWSA [
-    set grace-period grace-period-length
-  ]
-  set usingWSA new-practice
-end
-
 to farming-year ; main model step function
 
   ; a) Calculate Yield
@@ -153,27 +149,34 @@ to farming-year ; main model step function
     ]
 
     ; farmers who knowWSA make choice about whether to implement
-    [ if knowsWSA = true [
+    [ if not lead-farmer and knowsWSA = true [
         ; desperation pathway:
         ifelse total-yield < desperation-threshold [
-          change-practice not usingWSA
+          set nextPractice not usingWSA
         ]
         [ ; jealousy pathway:
           let best-link max-one-of my-neighbour-links [[average-yield] of other-end]
           let best-neighbour [other-end] of best-link
           if [average-yield] of best-neighbour > average-yield + jealousy-tolerance [
-            change-practice [usingWSA] of best-neighbour
+            set nextPractice [usingWSA] of best-neighbour
   ] ] ] ] ]
 
+  ; c) Change practices
+  ask farmers [
+    if nextPractice != usingWSA [
+      set grace-period grace-period-length
+    ]
+    set usingWSA nextPractice
+  ]
 
-  ; c) Share WSA Knowledge With Neighbours
+  ; d) Share WSA Knowledge With Neighbours
   ask farmers with [usingWSA = true] [
     ask my-neighbour-links [
       ask other-end [
         set knowsWSA true
   ] ] ]
 
-  ; d) Put Info Onto Fields (needed for python)
+  ; e) Put Info Onto Fields (needed for python)
   ask farmers [
     let farmerIsWSA usingWSA
     ask my-field-owner-links [
@@ -181,8 +184,17 @@ to farming-year ; main model step function
         set implements-WSA farmerIsWSA
   ] ] ]
 
-  ; e) Apply Style
+  ; f) Apply Style
   apply-style
+
+  ; g) force WSA spread
+  ask farmers with [usingWSA = true] [
+    ask my-field-owner-links [
+      ask other-end [
+        set yield 200
+      ]
+    ]
+  ]
 
 end
 
@@ -221,16 +233,15 @@ to apply-style ; style that changes as model runs
   ask farmers with [knowsWSA = true] [set color scale-color white 80 0 100]
   ask farmers with [usingWSA = true] [set color white]
 end
-
 @#$#@#$#@
 GRAPHICS-WINDOW
 224
 10
-1073
-860
+1747
+1534
 -1
 -1
-8.33
+15.0
 1
 10
 1
