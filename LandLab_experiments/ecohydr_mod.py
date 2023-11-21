@@ -42,19 +42,19 @@ class EcoHyd:
                         #(non-uniform time step length)
 
 
-        #set up grid of size 103*103. This will result in 101*101 cells plus a rim of nodes around them (hence 103*103).
+        #set up grid of size 53*53. This will result in 51*51 cells plus a rim of nodes around them (hence 53*53).
         #the inputs and outputs we need to pass all live on cells, not nodes. 
-        self.mg = RasterModelGrid((103, 103), 5.)
+        self.mg = RasterModelGrid((53, 53), 5.)
 
         #let's try to add an idealised elevation profile to this grid.
-        valley = np.zeros((103,103))
+        valley = np.zeros((53,53))
 
         def valleyfunc(x, y):
-            e = 0.02*(x-51)**2 - 0.02*(y-51)**2 + 60
+            e = 0.02*(x-25)**2 - 0.02*(y-25)**2 + 60
             return e
 
-        for x in np.arange(0, 103, 1):
-            for y in np.arange(0, 103, 1):
+        for x in np.arange(0, 53, 1):
+            for y in np.arange(0, 53, 1):
                 valley[y][x] = valleyfunc(x,y)
 
         self.mg.add_field("topographic__elevation", valley, at="node", units="m", copy=True, clobber=True) # The elevation field needs to have exactly 
@@ -144,10 +144,10 @@ class EcoHyd:
         #of the dry season/whenever the crop is changed. 
 
         #set functional type to 1 everywhere in growing season
-        functype_growing = np.ones(self.mg.number_of_cells).astype(int)
+        functype_growing = 0*np.ones(self.mg.number_of_cells).astype(int)
 
         #set functional type according to mask in non-growing season
-        functype_nongrowing = np.ones(WSA_array.shape).astype(int)
+        functype_nongrowing = 0*np.ones(WSA_array.shape).astype(int)
         functype_nongrowing[WSA_array == 0] = int(3)
         functype_nongrowing = functype_nongrowing.flatten()
         if len(functype_nongrowing) != self.mg.number_of_cells:
@@ -159,6 +159,8 @@ class EcoHyd:
 
             # Calculate Day of Year
             Julian = int(np.floor((self.current_time - np.floor(self.current_time)) * 365.0))
+            print(Julian)
+            print(self.current_time)
 
             # Generate seasonal storms
             # for Dry season
@@ -199,7 +201,7 @@ class EcoHyd:
             self.mg.at_cell["rainfall__daily_depth"] = self.P[i] * np.ones(self.mg.number_of_cells)
 
             # Update soil moisture component
-            current_time = self.SM.update()
+            self.current_time = self.SM.update()
 
             # Decide whether its growing season or not (comment this out, think it is irrelevant as the 
             # canicula kind of is this)
@@ -218,13 +220,14 @@ class EcoHyd:
             self.WS += (self.mg["cell"]["vegetation__water_stress"]) # need multiply this by time step in days if dt!=1day
 
             # Record time (optional)
-            self.Time[i] = current_time
+            self.Time[i] = self.current_time
 
             #print some outputs
             print('soil moisture sat.:', self.mg.at_cell['soil_moisture__saturation_fraction'])
             print('live biomass: ', self.mg.at_cell['vegetation__live_biomass'])
             print('ET: ', self.mg.at_cell['surface__potential_evapotranspiration_rate'])
-            print('ET: ', self.mg.at_cell['surface__potential_evapotranspiration_rate'])
+            print('ET30: ', self.mg.at_cell['surface__potential_evapotranspiration_30day_mean'])
+            print('PFT: ', self.mg.at_cell['vegetation__plant_functional_type'])
 
             #write to biomass
             #biomass[i, :] = self.mg.at_cell['vegetation__live_biomass']
