@@ -139,8 +139,8 @@ class EcoHyd:
         for i in range(0, 365):
             # Update objects
 
-            # Calculate Day of Year (DOY)
-            Julian = int(np.floor((current_time - np.floor(current_time)) * 365.0))
+            # Calculate Day of Year
+            Julian = int(np.floor((self.current_time - np.floor(self.current_time)) * 365.0))
 
             # Generate seasonal storms
             # for Dry season
@@ -153,7 +153,7 @@ class EcoHyd:
                 self.P[i] = self.PD_W.storm_depth
 
             # calculate radiation for each field based on day of the year
-            self.rad.current_time = self.current_time
+            #self.rad.current_time = self.current_time
             self.rad.update()
 
             # Spatially distribute PET and its 30-day-mean (analogous to degree day)
@@ -180,14 +180,14 @@ class EcoHyd:
                     # 0 corresponds to ETThresholddown (end growing season)
 
             # Update vegetation component
-            VEG = Vegetation(self.mg, PETthreshold_switch=PET_threshold, Tb=self.Tb[i], Tr=self.Tr[i]) #need to re-instatiate in order to 
-                                                                                        #be able to set threshold switch;
-                                                                                        #need to make sure this does not overwrite 
-                                                                                        #vegetation fields from previous time steps.
+            VEG = Vegetation(self.mg, PETthreshold_switch=PET_threshold) #need to re-instatiate in order to 
+                                                                         #be able to set threshold switch;
+                                                                         #need to make sure this does not overwrite 
+                                                                         #vegetation fields from previous time steps.
             VEG.update()
 
             # Update yearly cumulative water stress data
-            WS += (self.mg["cell"]["vegetation__water_stress"]) # need multiply this by time step in days if dt!=1day
+            self.WS += (self.mg["cell"]["vegetation__water_stress"]) # need multiply this by time step in days if dt!=1day
 
             # Record time (optional)
             self.Time[i] = current_time
