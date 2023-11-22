@@ -1,7 +1,11 @@
 '''
 Vegetation Dynamics Module adapted from the Landlab module.
-Guide to changes:
--...
+Guide to changes w.r.t. landlab default:
+-added a cover crop PFT that has the same properties as grass. Does not directly do anything here but avoids code 
+ complexity in the main model script because PFT do not need to switched back and forth between Soil Moisture and 
+ Vegetation calls this way.
+-added a WSA_soilhealth 'fudge factor' that takes on a default value of 1 but can be passed in from the outside to 
+ indicate how much WSA practices have increased soil health on a field, increasing net primary productivity. 
 '''
 
 import numpy as np
@@ -199,7 +203,7 @@ class Vegetation(Component):
             "mapping": "cell",
             "doc": (
                 "classification of plants (int), grass=0, shrub=1, tree=2, bare=3, "
-                "shrub_seedling=4, tree_seedling=5"
+                "shrub_seedling=4, tree_seedling=5, cover_crop=6"
             ),
         },
         "vegetation__water_stress": {
@@ -209,6 +213,14 @@ class Vegetation(Component):
             "units": "None",
             "mapping": "cell",
             "doc": "parameter that represents nonlinear effects of water deficit on plants",
+        },
+        "surface__WSA_soilhealth": {
+            "dtype": float,
+            "intent": "in",
+            "optional": False,
+            "units": "None",
+            "mapping": "cell",
+            "doc": "parameter that represents how much WSA practices have improved soil health to date",
         },
     }
 
@@ -249,10 +261,18 @@ class Vegetation(Component):
         ksg_bare=0.012,
         kdd_bare=0.013,
         kws_bare=0.02,
+        WUE_cc=0.01,
+        LAI_max_cc=2.0,
+        cb_cc=0.0047,
+        cd_cc=0.009,
+        ksg_cc=0.012,
+        kdd_cc=0.013,
+        kws_cc=0.02,
         method="Grid",
         PETthreshold_switch=0,
         Tb=24.0,
         Tr=0.01,
+        #WSA_soilhealth=1
     ):
         """
         Parameters
@@ -296,12 +316,15 @@ class Vegetation(Component):
         PETthreshold_switch: int, optional
             Flag to indiate the PET threshold. This controls whether the
             threshold is for growth (1) or dormancy (any other value).
+        WSA_soilhealth: float, optional
+            Fudge factor to indicate by how much WSA practices have improved soil health.
         """
         super().__init__(grid)
 
         self.Tb = Tb
         self.Tr = Tr
         self.PETthreshold_switch = PETthreshold_switch
+        #self.WSA_soilhealth = WSA_soilhealth
 
         self._method = method
 
@@ -342,6 +365,13 @@ class Vegetation(Component):
             ksg_bare=ksg_bare,
             kdd_bare=kdd_bare,
             kws_bare=kws_bare,
+            WUE_cc=WUE_cc,
+            LAI_max_cc=LAI_max_cc,
+            cb_cc=cb_cc,
+            cd_cc=cd_cc,
+            ksg_cc=ksg_cc,
+            kdd_cc=kdd_cc,
+            kws_cc=kws_cc,
         )
 
         self.initialize_output_fields()
@@ -385,6 +415,17 @@ class Vegetation(Component):
     def PETthreshold_switch(self, PETthreshold_switch):
         self._PETthreshold_switch = PETthreshold_switch
 
+    #@property
+    #def WSA_soilhealth(self):
+        """
+        Fudge factor that indicates by how much WSA practices have increased soil health.
+        """
+    #    return self._WSA_soilhealth
+
+    #@WSA_soilhealth.setter
+    #def WSA_soilhealth(self, WSA_soilhealth):
+    #    self._WSA_soilhealth = WSA_soilhealth
+
     def initialize(
         self,
         Blive_init=102.0,
@@ -421,9 +462,16 @@ class Vegetation(Component):
         ksg_bare=0.012,
         kdd_bare=0.013,
         kws_bare=0.02,
+        WUE_cc=0.01,
+        LAI_max_cc=2.0,
+        cb_cc=0.0047,
+        cd_cc=0.009,
+        ksg_cc=0.012,
+        kdd_cc=0.013,
+        kws_cc=0.02,
     ):
         # GRASS = 0; SHRUB = 1; TREE = 2; BARE = 3;
-        # SHRUBSEEDLING = 4; TREESEEDLING = 5
+        # SHRUBSEEDLING = 4; TREESEEDLING = 5; COVERCROP = 6
         """
         Parameters
         ----------
@@ -461,7 +509,7 @@ class Vegetation(Component):
         self._vegtype = self._grid["cell"]["vegetation__plant_functional_type"]
         self._WUE = np.choose(
             self._vegtype,
-            [WUE_grass, WUE_shrub, WUE_tree, WUE_bare, WUE_shrub, WUE_tree],
+            [WUE_grass, WUE_shrub, WUE_tree, WUE_bare, WUE_shrub, WUE_tree, WUE_cc],
         )
         # Water Use Efficiency  KgCO2kg-1H2O
         self._LAI_max = np.choose(
@@ -473,30 +521,31 @@ class Vegetation(Component):
                 LAI_max_bare,
                 LAI_max_shrub,
                 LAI_max_tree,
+                LAI_max_cc
             ],
         )
         # Maximum leaf area index (m2/m2)
         self._cb = np.choose(
-            self._vegtype, [cb_grass, cb_shrub, cb_tree, cb_bare, cb_shrub, cb_tree]
+            self._vegtype, [cb_grass, cb_shrub, cb_tree, cb_bare, cb_shrub, cb_tree, cb_cc]
         )
         # Specific leaf area for green/live biomass (m2 leaf g-1 DM)
         self._cd = np.choose(
-            self._vegtype, [cd_grass, cd_shrub, cd_tree, cd_bare, cd_shrub, cd_tree]
+            self._vegtype, [cd_grass, cd_shrub, cd_tree, cd_bare, cd_shrub, cd_tree, cd_cc]
         )
         # Specific leaf area for dead biomass (m2 leaf g-1 DM)
         self._ksg = np.choose(
             self._vegtype,
-            [ksg_grass, ksg_shrub, ksg_tree, ksg_bare, ksg_shrub, ksg_tree],
+            [ksg_grass, ksg_shrub, ksg_tree, ksg_bare, ksg_shrub, ksg_tree, ksg_cc],
         )
         # Senescence coefficient of green/live biomass (d-1)
         self._kdd = np.choose(
             self._vegtype,
-            [kdd_grass, kdd_shrub, kdd_tree, kdd_bare, kdd_shrub, kdd_tree],
+            [kdd_grass, kdd_shrub, kdd_tree, kdd_bare, kdd_shrub, kdd_tree, kdd_cc],
         )
         # Decay coefficient of aboveground dead biomass (d-1)
         self._kws = np.choose(
             self._vegtype,
-            [kws_grass, kws_shrub, kws_tree, kws_bare, kws_shrub, kws_tree],
+            [kws_grass, kws_shrub, kws_tree, kws_bare, kws_shrub, kws_tree, kws_cc],
         )
         # Maximum drought induced foliage loss rates (d-1)
         self._Blive_init = Blive_init
@@ -519,11 +568,13 @@ class Vegetation(Component):
         PETthreshold_ = self._PETthreshold_switch
         Tb = self._Tb
         Tr = self._Tr
+        #WSA_soilhealth = self._WSA_soilhealth
 
         PET = self._cell_values["surface__potential_evapotranspiration_rate"]
         PET30_ = self._cell_values["surface__potential_evapotranspiration_30day_mean"]
         ActualET = self._cell_values["surface__evapotranspiration"]
         Water_stress = self._cell_values["vegetation__water_stress"]
+        WSA_soilhealth = self._cell_values["surface__WSA_soilhealth"]
 
         self._LAIlive = self._cell_values["vegetation__live_leaf_area_index"]
         self._LAIdead = self._cell_values["vegetation__dead_leaf_area_index"]
@@ -547,7 +598,9 @@ class Vegetation(Component):
             # ETdmax = self._ETdmax[cell]
             LAIlive = min(cb * self._Blive_ini[cell], LAImax)
             LAIdead = min(cd * self._Bdead_ini[cell], (LAImax - LAIlive))
-            NPP = max((ActualET[cell] / (Tb + Tr)) * WUE * 24.0 * self._w * 1000, 0.001)
+
+            # scale primary productivity by fudge factor (WSA_soilhealth > 1 if using WSA, 1 otherwise)
+            NPP = max((ActualET[cell] / (Tb + Tr)) * WUE * 24.0 * self._w * 1000, 0.001) * WSA_soilhealth
 
             if self._vegtype[cell] == 0:
                 if PET30_[cell] > PETthreshold:

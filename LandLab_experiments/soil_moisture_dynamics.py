@@ -1,7 +1,11 @@
 '''
 Modified Soil Moisture Dynamics code from Landlab.
-Guide to changes:
--...
+Guide to changes w.r.t. landlab default:
+-introduced new plant functional type: cover crop (index 6, 'cc')
+-set the parameters for that PFT such that less water is lost to deep percolation in saturated conditions and less 
+ water is lost to evapotranspiration in dry conditions. A slight tradeoff is made in the interception capacity in that
+ also less rainwater reaches the soil, but since we expect little rain in the dry season anyway, the hope is that the effect of 
+ inhibited evaporation dominates the effect of reduced infiltration.
 '''
 
 import numpy as np
@@ -199,7 +203,7 @@ class SoilMoisture(Component):
             "mapping": "cell",
             "doc": (
                 "classification of plants (int), grass=0, shrub=1, tree=2, "
-                "bare=3, shrub_seedling=4, tree_seedling=5"
+                "bare=3, shrub_seedling=4, tree_seedling=5, cover_crop=6"
             ),
         },
         "vegetation__water_stress": {
@@ -458,9 +462,22 @@ class SoilMoisture(Component):
         beta_bare=13.8,
         LAI_max_bare=0.01,
         LAIR_max_bare=0.01,
+        intercept_cap_cc=2.0, #interception capacity; set this to same as tree. This will decrease amount of rainfall that reaches
+                              #the ground, but also decrease maximum evapotranspiration, which is more important in the dry season
+        zr_cc=0.3,
+        I_B_cc=20.0,
+        I_V_cc=30.0, #soil infiltration capacity; make this higher than grass, but not as high as shrubs
+        pc_cc=0.43,
+        fc_cc=0.56,
+        sc_cc=0.33,
+        wp_cc=0.13,
+        hgw_cc=0.1,
+        beta_cc=7.0,  #deep percolation constant; halved this
+        LAI_max_cc=2.0,
+        LAIR_max_cc=2.88,
     ):
         # GRASS = 0; SHRUB = 1; TREE = 2; BARE = 3;
-        # SHRUBSEEDLING = 4; TREESEEDLING = 5
+        # SHRUBSEEDLING = 4; TREESEEDLING = 5; COVERCROP = 6
         """
         Parameters
         ----------
@@ -513,48 +530,49 @@ class SoilMoisture(Component):
                 intercept_cap_bare,
                 intercept_cap_shrub,
                 intercept_cap_tree,
+                intercept_cap_cc
             ],
         )
 
         self._zr = np.choose(
-            self._vegtype, [zr_grass, zr_shrub, zr_tree, zr_bare, zr_shrub, zr_tree]
+            self._vegtype, [zr_grass, zr_shrub, zr_tree, zr_bare, zr_shrub, zr_tree, zr_cc]
         )
 
         self._soil_Ib = np.choose(
             self._vegtype,
-            [I_B_grass, I_B_shrub, I_B_tree, I_B_bare, I_B_shrub, I_B_tree],
+            [I_B_grass, I_B_shrub, I_B_tree, I_B_bare, I_B_shrub, I_B_tree, I_B_cc],
         )
 
         self._soil_Iv = np.choose(
             self._vegtype,
-            [I_V_grass, I_V_shrub, I_V_tree, I_V_bare, I_V_shrub, I_V_tree],
+            [I_V_grass, I_V_shrub, I_V_tree, I_V_bare, I_V_shrub, I_V_tree, I_V_cc],
         )
 
         self._soil_Ew = soil_ew
         self._soil_pc = np.choose(
-            self._vegtype, [pc_grass, pc_shrub, pc_tree, pc_bare, pc_shrub, pc_tree]
+            self._vegtype, [pc_grass, pc_shrub, pc_tree, pc_bare, pc_shrub, pc_tree, pc_cc]
         )
 
-        self._soil_fc = np.choose(
-            self._vegtype, [fc_grass, fc_shrub, fc_tree, fc_bare, fc_shrub, fc_tree]
+        self._soil_fc = np.choose( #soil saturation at field capacity
+            self._vegtype, [fc_grass, fc_shrub, fc_tree, fc_bare, fc_shrub, fc_tree, fc_cc]
         )
 
-        self._soil_sc = np.choose(
-            self._vegtype, [sc_grass, sc_shrub, sc_tree, sc_bare, sc_shrub, sc_tree]
+        self._soil_sc = np.choose( #soil saturation at stomatal closure
+            self._vegtype, [sc_grass, sc_shrub, sc_tree, sc_bare, sc_shrub, sc_tree, sc_cc]
         )
 
         self._soil_wp = np.choose(
-            self._vegtype, [wp_grass, wp_shrub, wp_tree, wp_bare, wp_shrub, wp_tree]
+            self._vegtype, [wp_grass, wp_shrub, wp_tree, wp_bare, wp_shrub, wp_tree, wp_cc]
         )
 
         self._soil_hgw = np.choose(
             self._vegtype,
-            [hgw_grass, hgw_shrub, hgw_tree, hgw_bare, hgw_shrub, hgw_tree],
+            [hgw_grass, hgw_shrub, hgw_tree, hgw_bare, hgw_shrub, hgw_tree, hgw_cc],
         )
 
         self._soil_beta = np.choose(
             self._vegtype,
-            [beta_grass, beta_shrub, beta_tree, beta_bare, beta_shrub, beta_tree],
+            [beta_grass, beta_shrub, beta_tree, beta_bare, beta_shrub, beta_tree, beta_cc],
         )
 
         self._LAI_max = np.choose(
@@ -566,6 +584,7 @@ class SoilMoisture(Component):
                 LAI_max_bare,
                 LAI_max_shrub,
                 LAI_max_tree,
+                LAI_max_cc
             ],
         )
 
@@ -578,6 +597,7 @@ class SoilMoisture(Component):
                 LAIR_max_bare,
                 LAIR_max_shrub,
                 LAIR_max_tree,
+                LAIR_max_cc
             ],
         )
 
@@ -635,10 +655,12 @@ class SoilMoisture(Component):
                 + self._soil_Iv[cell] * self._vegcover[cell]
             )
             # Infiltration capacity
+
             Int_cap = min(self._vegcover[cell] * self._interception_cap[cell], P)
             # Interception capacity
+
             Peff = max(P - Int_cap, 0.0)  # Effective precipitation depth
-            mu = (Inf_cap / 1000.0) / (pc * ZR * (np.exp(beta * (1.0 - fc)) - 1.0))
+            mu = (Inf_cap / 1000.0) / (pc * ZR * (np.exp(beta * (1.0 - fc)) - 1.0)) #pc is soil porosity, ZR root depth, beta is percolation constant
             Ep = max(
                 (
                     self._PET[cell] * self._fr[cell]
@@ -647,7 +669,7 @@ class SoilMoisture(Component):
                 - Int_cap,
                 0.0001,
             )  # mm/d
-            self._ETmax[cell] = Ep
+            self._ETmax[cell] = Ep #set maximum ET from PET, bare soil fraction (fbare) and leaf area index fraction (fr)
             nu = ((Ep / 24.0) / 1000.0) / (pc * ZR)  # Loss function parameter
             nuw = ((self._soil_Ew / 24.0) / 1000.0) / (pc * ZR) # Loss function parameter
             sini = self._SO[cell] + ((Peff + self._runon) / (pc * ZR * 1000.0)) #this is probably the initial soil moisture after accounting for rainfall from storm
@@ -659,12 +681,17 @@ class SoilMoisture(Component):
             else:
                 self._runoff[cell] = 0.0
 
-            if sini >= fc:
+            if sini >= fc: #if initial saturation smaller than soil saturation at field capacity, calculate soil leakage rate
+                #time left to spend beyond field capacity?
                 tfc = (1.0 / (beta * (mu - nu))) * (
                     beta * (fc - sini)
                     + np.log((nu - mu + mu * np.exp(beta * (sini - fc))) / nu)
                 )
+
+                #time left to spend  before stomatal closure?
                 tsc = ((fc - sc) / nu) + tfc
+
+                #time left to spend before wilting point?
                 twp = ((sc - wp) / (nu - nuw)) * np.log(nu / nuw) + tsc
 
                 if Tb < tfc:
@@ -713,7 +740,7 @@ class SoilMoisture(Component):
                     )
                     self._ETA[cell] = (1000.0 * ZR * pc * (sini - s)) - self._D[cell]
 
-            elif sini < fc and sini >= sc:
+            elif sini < fc and sini >= sc:  #if initial soil saturation is smaller than field capacity but larger than stomatal closure saturation
                 tfc = 0.0
                 tsc = (sini - sc) / nu
                 twp = ((sc - wp) / (nu - nuw)) * np.log(nu / nuw) + tsc
@@ -739,7 +766,7 @@ class SoilMoisture(Component):
                     self._D[cell] = 0.0
                     self._ETA[cell] = 1000.0 * ZR * pc * (sini - s)
 
-            elif sini < sc and sini >= wp:
+            elif sini < sc and sini >= wp: # if initial soil saturation is smaller than stomatal closure thresh. but larger than wilting point
                 tfc = 0
                 tsc = 0
                 twp = ((sc - wp) / (nu - nuw)) * np.log(
@@ -762,7 +789,7 @@ class SoilMoisture(Component):
                     self._D[cell] = 0.0
                     self._ETA[cell] = 1000.0 * ZR * pc * (sini - s)
 
-            else:
+            else: #if the soil is already at wilting point initially
                 tfc = 0.0
                 tsc = 0.0
                 twp = 0.0

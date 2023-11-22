@@ -4,8 +4,10 @@ This is a module for the Ecohydrology model that can be imported from the main d
 
 import numpy as np
 from landlab import RasterModelGrid 
-from landlab.components import (Vegetation, SoilMoisture, Radiation, PotentialEvapotranspiration)
+from landlab.components import (Radiation, PotentialEvapotranspiration)
 from generate_uniform_precip import PrecipitationDistribution
+from vegetation_dynamics import Vegetation
+from soil_moisture_dynamics import SoilMoisture
 
 
 class EcoHyd:
@@ -127,7 +129,19 @@ class EcoHyd:
         #again we need to initialise some fields to get this to run
         self.mg.at_cell['surface__potential_evapotranspiration_30day_mean'] = self.mg.at_cell['surface__potential_evapotranspiration_rate'] 
                         # set the mean equal to the initial value (is this sensible?)
+        self.mg.at_cell['surface__WSA_soilhealth'] = np.ones(self.mg.number_of_cells) 
         self.VEG = Vegetation(self.mg)
+
+        # finally, we set up a 'memory' array that records how many years have passed since the last switch to WSA (or non-WSA).
+        # We need this to calculate the appropriate WSA_soilhealth fudge factor for each cell. 
+        # This array would be zero everywhere by default. Then, once a switch happens on a cell (or on those cells that are WSA initially),
+        # it counts up integer years since the switch was made. These integers are positive for a switch to WSA and negative for a switch back.
+        # Any switch sets the array value for that field back to zero. 
+        # We then pass that array to a function that returns the WSA_soilhealth value for each field based on the current value of WSA_soilhealth 
+        # and the number of years passed. 
+        # Actually, I have a better idea: memory is implicit by just defining a lower bound for WSA_soilhealth (probs just 1) and an upper bound 
+        # (say e.g. 1.3). If WSA=True on a field, compute upperbound-WSA_soilhealth and increment WSA_soilhealth by a fixed percentage of that value
+        # (e.g., half.). Do the reverse on fields where WSA=False. 
 
 
 
@@ -140,15 +154,15 @@ class EcoHyd:
 
         #assume that '1' is for using WSA and '0' is for not using WSA. We also assume that WSA is only about 
         #cover cropping for now. This means that in the dry season, we would set the 
-        #'vegetation__plant_functional_type' field to 3 (bare) in non-WSA plots, while it is 1 ('grass') in WSA
-        #plots all year round. In both cases, the biomass would have to be reset to zero at the beginning and end
+        #'vegetation__plant_functional_type' field to 3 (bare) in non-WSA plots, while it is 6 (Cover Crop) in WSA
+        #plots. In both cases, the biomass would have to be reset to zero at the beginning and end
         #of the dry season/whenever the crop is changed. 
 
-        #set functional type to 1 everywhere in growing season
+        #set functional type to 0 everywhere in growing season
         functype_growing = 0*np.ones(self.mg.number_of_cells).astype(int)
 
         #set functional type according to mask in non-growing season
-        functype_nongrowing = 0*np.ones(WSA_array.shape).astype(int)
+        functype_nongrowing = 6*np.ones(WSA_array.shape).astype(int)
         functype_nongrowing[WSA_array == 0] = int(3)
         functype_nongrowing = functype_nongrowing.flatten()
         if len(functype_nongrowing) != self.mg.number_of_cells:
