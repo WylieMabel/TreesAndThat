@@ -4,8 +4,8 @@ This is a module for the Ecohydrology model that can be imported from the main d
 
 import numpy as np
 from landlab import RasterModelGrid 
-from landlab.components import (Vegetation, SoilMoisture, Radiation, PotentialEvapotranspiration,
-                                PrecipitationDistribution)
+from landlab.components import (Vegetation, SoilMoisture, Radiation, PotentialEvapotranspiration)
+from generate_uniform_precip import PrecipitationDistribution
 
 
 class EcoHyd:
@@ -204,6 +204,8 @@ class EcoHyd:
             self.mg.at_cell["rainfall__daily_depth"] = self.P[i] * np.ones(self.mg.number_of_cells)
 
             # Update soil moisture component
+            #TODO need to fudge this so WSA makes a difference. Add a term that increases resistance to evaporation as 
+            #well as reducing root zone leakage in the presence of vegetation. 
             self.current_time = self.SM.update()
 
             # Decide whether its growing season or not (comment this out, think it is irrelevant as the 
