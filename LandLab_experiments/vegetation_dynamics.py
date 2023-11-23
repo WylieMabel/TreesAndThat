@@ -271,8 +271,7 @@ class Vegetation(Component):
         method="Grid",
         PETthreshold_switch=0,
         Tb=24.0,
-        Tr=0.01,
-        #WSA_soilhealth=1
+        Tr=0.01
     ):
         """
         Parameters
@@ -316,15 +315,12 @@ class Vegetation(Component):
         PETthreshold_switch: int, optional
             Flag to indiate the PET threshold. This controls whether the
             threshold is for growth (1) or dormancy (any other value).
-        WSA_soilhealth: float, optional
-            Fudge factor to indicate by how much WSA practices have improved soil health.
         """
         super().__init__(grid)
 
         self.Tb = Tb
         self.Tr = Tr
         self.PETthreshold_switch = PETthreshold_switch
-        #self.WSA_soilhealth = WSA_soilhealth
 
         self._method = method
 
@@ -415,16 +411,6 @@ class Vegetation(Component):
     def PETthreshold_switch(self, PETthreshold_switch):
         self._PETthreshold_switch = PETthreshold_switch
 
-    #@property
-    #def WSA_soilhealth(self):
-        """
-        Fudge factor that indicates by how much WSA practices have increased soil health.
-        """
-    #    return self._WSA_soilhealth
-
-    #@WSA_soilhealth.setter
-    #def WSA_soilhealth(self, WSA_soilhealth):
-    #    self._WSA_soilhealth = WSA_soilhealth
 
     def initialize(
         self,
@@ -568,7 +554,6 @@ class Vegetation(Component):
         PETthreshold_ = self._PETthreshold_switch
         Tb = self._Tb
         Tr = self._Tr
-        #WSA_soilhealth = self._WSA_soilhealth
 
         PET = self._cell_values["surface__potential_evapotranspiration_rate"]
         PET30_ = self._cell_values["surface__potential_evapotranspiration_30day_mean"]
@@ -600,7 +585,7 @@ class Vegetation(Component):
             LAIdead = min(cd * self._Bdead_ini[cell], (LAImax - LAIlive))
 
             # scale primary productivity by fudge factor (WSA_soilhealth > 1 if using WSA, 1 otherwise)
-            NPP = max((ActualET[cell] / (Tb + Tr)) * WUE * 24.0 * self._w * 1000, 0.001) * WSA_soilhealth
+            NPP = max((ActualET[cell] / (Tb + Tr)) * WUE * 24.0 * self._w * 1000, 0.001) * WSA_soilhealth[cell]
 
             if self._vegtype[cell] == 0:
                 if PET30_[cell] > PETthreshold:

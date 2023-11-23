@@ -59,9 +59,10 @@ class EcoHyd:
             for y in np.arange(0, 53, 1):
                 valley[y][x] = valleyfunc(x,y)
 
-        self.mg.add_field("topographic__elevation", valley, at="node", units="m", copy=True, clobber=True) # The elevation field needs to have exactly 
-                                                                                                    # this name in order for components to be 
-                                                                                                    # able to work with it.
+        self.mg.add_field("topographic__elevation", valley, at="node", units="m", copy=True, clobber=True) 
+        # The elevation field needs to have exactly 
+        # this name in order for components to be 
+        # able to work with it.
 
         #############################
         #generate precipitation data#
@@ -132,17 +133,13 @@ class EcoHyd:
         self.mg.at_cell['surface__WSA_soilhealth'] = np.ones(self.mg.number_of_cells) 
         self.VEG = Vegetation(self.mg)
 
-        # finally, we set up a 'memory' array that records how many years have passed since the last switch to WSA (or non-WSA).
-        # We need this to calculate the appropriate WSA_soilhealth fudge factor for each cell. 
-        # This array would be zero everywhere by default. Then, once a switch happens on a cell (or on those cells that are WSA initially),
-        # it counts up integer years since the switch was made. These integers are positive for a switch to WSA and negative for a switch back.
-        # Any switch sets the array value for that field back to zero. 
-        # We then pass that array to a function that returns the WSA_soilhealth value for each field based on the current value of WSA_soilhealth 
-        # and the number of years passed. 
-        # Actually, I have a better idea: memory is implicit by just defining a lower bound for WSA_soilhealth (probs just 1) and an upper bound 
-        # (say e.g. 1.3). If WSA=True on a field, compute upperbound-WSA_soilhealth and increment WSA_soilhealth by a fixed percentage of that value
-        # (e.g., half.). Do the reverse on fields where WSA=False. 
 
+        # finally, we define a lower bound for WSA_soilhealth (probs just 1) and an upper bound 
+        # (say e.g. 1.3). If WSA=True on a field, compute upperbound-WSA_soilhealth and increment 
+        # WSA_soilhealth by a fixed percentage of that value
+        # (e.g., half.). Do the reverse on fields where WSA=False.
+        self.WSA_sh_lower = 1.
+        self.WSA_sh_upper = 1.3
 
 
     def stepper(self, WSA_array):
@@ -250,6 +247,14 @@ class EcoHyd:
 
             #write to biomass
             #biomass[i, :] = self.mg.at_cell['vegetation__live_biomass']
+
+        # update soil health parameter
+        WSA_sh_mask = np.ones(WSA_array.shape)
+        WSA_sh_mask[WSA_array == 0] = self.WSA_sh_lower
+        WSA_sh_mask[WSA_array == 1] = self.WSA_sh_upper
+        WSA_sh_mask = WSA_sh_mask.flatten()
+        self.mg.at_cell['surface__WSA_soilhealth'] += (WSA_sh_mask - self.mg.at_cell['surface__WSA_soilhealth'])*0.5 
+
 
         return biomass, SM_canic_end
 
