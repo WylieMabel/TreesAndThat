@@ -270,6 +270,19 @@ class SoilMoisture(Component):
         beta_bare=13.8,
         LAI_max_bare=0.01,
         LAIR_max_bare=0.01,
+        intercept_cap_cc=1.0, 
+        evap_inhib_cc=3.0, #this is unique to CC PFT - substituted in for intercept cap in evaporative processes
+        zr_cc=0.15,
+        I_B_cc=20.0,
+        I_V_cc=20.0, #soil infiltration capacity; make this higher than grass, but not as high as shrubs
+        pc_cc=0.43,
+        fc_cc=0.56,
+        sc_cc=0.33,
+        wp_cc=0.13,
+        hgw_cc=0.1,
+        beta_cc=7,  #deep percolation constant; halved this
+        LAI_max_cc=0.01, #Leaf Area index; set this to the same as bare soil to get almost no evapotranspiration
+        LAIR_max_cc=0.01,
         method="Grid",
         Tb=24.0,
         Tr=0.0,
@@ -381,6 +394,19 @@ class SoilMoisture(Component):
             beta_bare=beta_bare,
             LAI_max_bare=LAI_max_bare,
             LAIR_max_bare=LAIR_max_bare,
+            intercept_cap_cc=intercept_cap_cc,
+            evap_inhib_cc=evap_inhib_cc,
+            zr_cc=zr_cc,
+            I_B_cc=I_B_cc,
+            I_V_cc=I_V_cc, 
+            pc_cc=pc_cc,
+            fc_cc=fc_cc,
+            sc_cc=sc_cc,
+            wp_cc=wp_cc,
+            hgw_cc=hgw_cc,
+            beta_cc=beta_cc,  
+            LAI_max_cc=LAI_max_cc,
+            LAIR_max_cc=LAIR_max_cc,
         )
 
         self.initialize_output_fields()
@@ -462,19 +488,19 @@ class SoilMoisture(Component):
         beta_bare=13.8,
         LAI_max_bare=0.01,
         LAIR_max_bare=0.01,
-        intercept_cap_cc=2.0, #interception capacity; set this to same as tree. This will decrease amount of rainfall that reaches
-                              #the ground, but also decrease maximum evapotranspiration, which is more important in the dry season
-        zr_cc=0.3,
+        intercept_cap_cc=1.0, 
+        evap_inhib_cc=3.0, #this is unique to CC PFT - substituted in for intercept cap in evaporative processes
+        zr_cc=0.15,
         I_B_cc=20.0,
-        I_V_cc=30.0, #soil infiltration capacity; make this higher than grass, but not as high as shrubs
+        I_V_cc=20.0, #soil infiltration capacity; make this higher than grass, but not as high as shrubs
         pc_cc=0.43,
         fc_cc=0.56,
         sc_cc=0.33,
         wp_cc=0.13,
         hgw_cc=0.1,
-        beta_cc=7.0,  #deep percolation constant; halved this
-        LAI_max_cc=2.0,
-        LAIR_max_cc=2.88,
+        beta_cc=7,  #deep percolation constant; halved this
+        LAI_max_cc=0.01, #set leaf area index to be the same as bare soil; effectively doing mulching now!
+        LAIR_max_cc=0.01,
     ):
         # GRASS = 0; SHRUB = 1; TREE = 2; BARE = 3;
         # SHRUBSEEDLING = 4; TREESEEDLING = 5; COVERCROP = 6
@@ -492,6 +518,9 @@ class SoilMoisture(Component):
         intercept_cap: float, optional
             Plant Functional Type (PFT) specific full canopy interception
             capacity.
+        evap_inhib: float, optional
+            same as intercept_cap; For CC PFT, this makes capacity different
+            for evaporative processes than for precipitation.
         zr: float, optional
             Root depth (m).
         I_B: float, optional
@@ -531,6 +560,19 @@ class SoilMoisture(Component):
                 intercept_cap_shrub,
                 intercept_cap_tree,
                 intercept_cap_cc
+            ],
+        )
+
+        self._evap_inhib = np.choose(
+            self._vegtype,
+            [
+                intercept_cap_grass,
+                intercept_cap_shrub,
+                intercept_cap_tree,
+                intercept_cap_bare,
+                intercept_cap_shrub,
+                intercept_cap_tree,
+                evap_inhib_cc
             ],
         )
 
@@ -659,16 +701,32 @@ class SoilMoisture(Component):
             Int_cap = min(self._vegcover[cell] * self._interception_cap[cell], P)
             # Interception capacity
 
+            Evap_inh = self._evap_inhib[cell]
+            #evaporative inhibition
+
             Peff = max(P - Int_cap, 0.0)  # Effective precipitation depth
             mu = (Inf_cap / 1000.0) / (pc * ZR * (np.exp(beta * (1.0 - fc)) - 1.0)) #pc is soil porosity, ZR root depth, beta is percolation constant
-            Ep = max(
-                (
-                    self._PET[cell] * self._fr[cell]
-                    + fbare * self._PET[cell] * (1.0 - self._fr[cell])
-                )
-                - Int_cap,
-                0.0001,
-            )  # mm/d
+            
+            #if the evaporative inhibition is different from interception capacity, calculate max. evap from evaporative inhibition
+            if self._interception_cap[cell] == self._evap_inhib[cell]:
+                Ep = max(
+                    (
+                        self._PET[cell] * self._fr[cell]
+                        + fbare * self._PET[cell] * (1.0 - self._fr[cell])
+                    )
+                    - Int_cap,
+                    0.0001,
+                )  # mm/d
+            else:
+                Ep = max(
+                    (
+                        self._PET[cell] * self._fr[cell]
+                        + fbare * self._PET[cell] * (1.0 - self._fr[cell])
+                    )
+                    - Evap_inh,
+                    0.0001,
+                )  # mm/d
+            #print('Maximum Evapotranspiration:', Ep)
             self._ETmax[cell] = Ep #set maximum ET from PET, bare soil fraction (fbare) and leaf area index fraction (fr)
             nu = ((Ep / 24.0) / 1000.0) / (pc * ZR)  # Loss function parameter
             nuw = ((self._soil_Ew / 24.0) / 1000.0) / (pc * ZR) # Loss function parameter
@@ -805,5 +863,5 @@ class SoilMoisture(Component):
             self._SO[cell] = s
             self._Sini[cell] = sini
 
-        self.current_time += (Tb + Tr) / (24.0 * 365.25)
+        self.current_time += (Tb + Tr) / (24.0 * 365.)
         return current_time

@@ -262,7 +262,7 @@ class Vegetation(Component):
         kdd_bare=0.013,
         kws_bare=0.02,
         WUE_cc=0.01,
-        LAI_max_cc=2.0,
+        LAI_max_cc=0.01, #set to the same as bare
         cb_cc=0.0047,
         cd_cc=0.009,
         ksg_cc=0.012,
@@ -449,7 +449,7 @@ class Vegetation(Component):
         kdd_bare=0.013,
         kws_bare=0.02,
         WUE_cc=0.01,
-        LAI_max_cc=2.0,
+        LAI_max_cc=0.01,
         cb_cc=0.0047,
         cd_cc=0.009,
         ksg_cc=0.012,
@@ -629,7 +629,7 @@ class Vegetation(Component):
                         )
                     )
 
-            elif self._vegtype[cell] == 3:
+            elif self._vegtype[cell] == 3 or self._vegtype[cell] == 6:
                 Blive = 0.0
                 Bdead = 0.0
 

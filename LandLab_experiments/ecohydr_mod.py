@@ -29,7 +29,7 @@ class EcoHyd:
         }
 
         # Represent current time in years (N.B. this is a float, so 0.5 would be mid-June of the first model year)
-        self.current_time = 1/365  # Start from first day of Jan
+        self.current_time = 0  # Start from first day of Jan
         self.n=365 # length of single model loop in days
 
         # declaring few variables that will be used in the storm loop
@@ -114,7 +114,7 @@ class EcoHyd:
                                                                         #use this, does it multiply this value with the legth of 
                                                                         #the time step expressed in days?
         self.mg.at_cell['vegetation__cover_fraction'] = np.ones(self.mg.number_of_cells) #full cover everywhere
-        self.mg.at_cell['vegetation__live_leaf_area_index'] = 2*np.ones(self.mg.number_of_cells) #not sure what a sensible value is here.
+        self.mg.at_cell['vegetation__live_leaf_area_index'] = np.ones(self.mg.number_of_cells) #not sure what a sensible value is here.
                                                                                     # from doc:
                                                                                     # one-sided green leaf area per unit ground surface area.
         self.mg.at_cell['vegetation__plant_functional_type'] = 0*(np.ones(self.mg.number_of_cells)).astype(int) #from doc:
@@ -176,7 +176,7 @@ class EcoHyd:
 
             # Generate seasonal storms
             # for Dry season
-            if Julian < self.config['canicula_end'] or Julian > self.config['canicula_start']: 
+            if Julian <= self.config['canicula_end'] or Julian > self.config['canicula_start']: 
                 self.PD_D.update()
                 self.P[i] = self.PD_D.storm_depth
             # Wet Season 
@@ -185,18 +185,21 @@ class EcoHyd:
                 self.P[i] = self.PD_W.storm_depth
 
             # At the start of the canicula, harvest all fields and change the PFT to bare soil on 
-            # non-WSA fields
+            # non-WSA fields and cover crop on WSA fields
             if Julian == self.config['canicula_start']:
                 self.mg.at_cell['vegetation__plant_functional_type'] = functype_nongrowing
                 #record the last state of the biomass before we overwrite by re-initialising ('harvesting')
-                biomass = self.mg.at_cell['vegetation__live_biomass']
+                biomass = self.mg.at_cell['vegetation__live_biomass'].copy()
+                #need to re-initialize SM component for it to recognise new PFT
+                self.SM.initialize()
                 self.VEG.initialize()
 
-            # At the end of the canicula, harvest WSA fields and set non-WSA PFT back to grass
+            # At the end of the canicula, harvest WSA fields and set all PFT back to grass
             if Julian == self.config['canicula_end']:
                 self.mg.at_cell['vegetation__plant_functional_type'] = functype_growing
                 #record soil moisture at end of canicula to see if WSA makes a difference
-                SM_canic_end = self.mg.at_cell['soil_moisture__saturation_fraction']
+                SM_canic_end = self.mg.at_cell['soil_moisture__saturation_fraction'].copy()
+                self.SM.initialize()
                 self.VEG.initialize()
                 
             # calculate radiation for each field based on day of the year
@@ -248,7 +251,7 @@ class EcoHyd:
             #write to biomass
             #biomass[i, :] = self.mg.at_cell['vegetation__live_biomass']
 
-        # update soil health parameter
+        # update soil health parameter at the end of the year
         WSA_sh_mask = np.ones(WSA_array.shape)
         WSA_sh_mask[WSA_array == 0] = self.WSA_sh_lower
         WSA_sh_mask[WSA_array == 1] = self.WSA_sh_upper
