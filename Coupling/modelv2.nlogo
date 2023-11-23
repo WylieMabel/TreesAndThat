@@ -134,6 +134,10 @@ end
 
 to farming-year ; main model step function
 
+  ask neighbour-links [
+    set hidden? true
+    set hidden? false
+  ]
   ; a) Calculate Yield
   ask farmers [
     let my-yields [[yield] of other-end] of my-field-owner-links
@@ -219,6 +223,12 @@ to apply-style-init ; initial styling
   ]
   ask farmers [
     set farm-color one-of base-colors
+    let farm-color-temp extract-hsb farm-color
+    let hue item 0 farm-color-temp
+    let sat item 1 farm-color-temp - 20
+    let bri item 2 farm-color-temp
+    let hsb-temp (list hue sat bri )
+    set farm-color approximate-hsb hue sat bri
     set shape "person"
     set color black
     set size 0.7
@@ -230,7 +240,7 @@ to apply-style-init ; initial styling
 end
 
 to apply-style ; style that changes as model runs
-  ask farmers with [knowsWSA = true] [set color scale-color white 80 0 100]
+  ask farmers with [knowsWSA = true] [set color scale-color white 30 0 100]
   ask farmers with [usingWSA = true] [set color white]
 end
 @#$#@#$#@

@@ -42,7 +42,7 @@ to initialise
   set jealousy-tolerance 50
   set grace-period-length 3
 
-  create-farmers 3000
+  create-farmers 800
   ask farmers [ ; move to unoccupied patches, initialise as non-lead-farmers
     move-to one-of patches with [not any? farmers-here]
     set lead-farmer false
@@ -53,7 +53,7 @@ to initialise
 
   let x min-pxcor
   let y min-pycor
-  create-fields 10201 [ ; create field agents, one for each patch (to allow links between farmers and patches)
+  create-fields 2601 [ ; create field agents, one for each patch (to allow links between farmers and patches)
     setxy x y
     set yield 100
     set x x + 1
@@ -134,6 +134,10 @@ end
 
 to farming-year ; main model step function
 
+  ask neighbour-links [
+    set hidden? true
+    set hidden? false
+  ]
   ; a) Calculate Yield
   ask farmers [
     let my-yields [[yield] of other-end] of my-field-owner-links
@@ -219,6 +223,12 @@ to apply-style-init ; initial styling
   ]
   ask farmers [
     set farm-color one-of base-colors
+    let farm-color-temp extract-hsb farm-color
+    let hue item 0 farm-color-temp
+    let sat item 1 farm-color-temp - 1
+    let bri item 2 farm-color-temp
+    let hsb-temp (list hue sat bri )
+    set farm-color approximate-hsb hue sat bri
     set shape "person"
     set color black
     set size 0.7
@@ -230,15 +240,15 @@ to apply-style-init ; initial styling
 end
 
 to apply-style ; style that changes as model runs
-  ask farmers with [knowsWSA = true] [set color scale-color white 80 0 100]
+  ask farmers with [knowsWSA = true] [set color scale-color white 40 0 100]
   ask farmers with [usingWSA = true] [set color white]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
 224
 10
-1747
-1534
+997
+784
 -1
 -1
 15.0
@@ -251,10 +261,10 @@ GRAPHICS-WINDOW
 0
 0
 1
--50
-50
--50
-50
+-25
+25
+-25
+25
 0
 0
 1
