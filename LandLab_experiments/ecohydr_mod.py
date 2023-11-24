@@ -149,7 +149,7 @@ class EcoHyd:
         self.WSA_sh_lower = 1.
         self.WSA_sh_upper = 1.3
 
-    def stepper(self, WSA_array, avg_temp, maximum_temp, minimum_temp):
+    def stepper(self, WSA_array):
         '''
         Run a one-year loop of the Ecohydrology model at a daily time step.
         '''
