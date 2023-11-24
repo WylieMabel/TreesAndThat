@@ -52,14 +52,14 @@ class EcoHyd:
         valley = np.zeros((53,53))
 
         def valleyfunc(x, y):
-            e = 0.02*(x-25)**2 - 0.02*(y-25)**2 + 60
+            e = 0.01*(x-25)**2 - 0.01*(y-25)**2 + 60
             return e
 
         for x in np.arange(0, 53, 1):
             for y in np.arange(0, 53, 1):
                 valley[y][x] = valleyfunc(x,y)
 
-        valley = np.zeros((53,53))
+        #valley = np.zeros((53,53))
 
         self.mg.add_field("topographic__elevation", valley, at="node", units="m", copy=True, clobber=True) 
         # The elevation field needs to have exactly 
