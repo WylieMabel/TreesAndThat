@@ -22,7 +22,7 @@ class EcoHyd:
             'canicula_end':100, 
             # I pulled the following out of my behind, need to check with local climatology if this is sensible. 
             # Times are all in hours.
-            'mean_interstorm_wet':3*24,
+            'mean_interstorm_wet':4*24,
             'mean_storm_wet':2*24,
             'mean_interstorm_dry':20*24,
             'mean_storm_dry':2*24
@@ -81,7 +81,7 @@ class EcoHyd:
 
         self.PD_W = PrecipitationDistribution(self.mg, mean_storm_duration=self.config['mean_storm_wet'], 
                                               mean_interstorm_duration=self.config['mean_interstorm_wet'],
-                                              mean_storm_depth=1, total_t=325)
+                                              mean_storm_depth=0.5, total_t=325)
 
         #if we choose this way of assigning precipitation, there should then be a `rainfall__flux` field on our grid, although I am not sure 
         #how to access it as it is added to the entire grid rather than individual nodes.
@@ -107,7 +107,7 @@ class EcoHyd:
         self.Tmax = init_max_T
         self.Tavg = init_avg_T
         self.PET = PotentialEvapotranspiration(self.mg, method='PriestleyTaylor', current_time=self.current_time,
-                                               Tmin = self.Tmin, Tmax = self.Tmax, Tavg = self.Tavg)
+                                               Tmin = self.Tmin, Tmax = self.Tmax, Tavg = self.Tavg, latitude=10.)
         self.PET.update() 
         #running this initialises the output fields on the grid (which the soil moisture component needs)
 
@@ -138,7 +138,8 @@ class EcoHyd:
         self.mg.at_cell['surface__potential_evapotranspiration_30day_mean'] = self.mg.at_cell['surface__potential_evapotranspiration_rate'] 
                         # set the mean equal to the initial value (is this sensible?)
         self.mg.at_cell['surface__WSA_soilhealth'] = np.ones(self.mg.number_of_cells) 
-        self.VEG = Vegetation(self.mg)
+        # decrease ET threshold from the default value of 3.8 bc that meant farmers on N-facing slopes had huge losses
+        self.VEG = Vegetation(self.mg, PETthreshold_switch=1, ETthreshold_up=3.)
 
 
         # finally, we define a lower bound for WSA_soilhealth (probs just 1) and an upper bound 
@@ -195,7 +196,8 @@ class EcoHyd:
             if Julian == self.config['canicula_start']:
                 self.mg.at_cell['vegetation__plant_functional_type'] = functype_nongrowing
                 #record the last state of the biomass before we overwrite by re-initialising ('harvesting')
-                biomass = self.mg.at_cell['vegetation__live_biomass'].copy()
+                if self.config['canicula_start'] != 0:
+                    biomass = self.mg.at_cell['vegetation__live_biomass'].copy()
                 #need to re-initialize SM component for it to recognise new PFT
                 self.SM.initialize()
                 self.VEG.initialize()
@@ -209,7 +211,6 @@ class EcoHyd:
                 self.VEG.initialize()
                 
             # calculate radiation for each field based on day of the year
-            #self.rad.current_time = self.current_time
             self.rad.update()
 
             # Spatially distribute PET and its 30-day-mean (analogous to degree day)
@@ -217,21 +218,15 @@ class EcoHyd:
             #mg["cell"]["surface__potential_evapotranspiration_30day_mean"] = EP30[Julian]
 
             # calculate PET for each field based on day of the year
-            #TODO read in temperature data for each day and update PET with those
             self.PET.Tmin = minimum_temp[i]
             self.PET.Tmax = maximum_temp[i]
             self.PET.Tavg = avg_temp[i]
-            
-            print(self.PET.current_time)
-            print('input T: ', avg_temp[i])
             self.PET.update()
 
             # Assign spatial rainfall data
             self.mg.at_cell["rainfall__daily_depth"] = self.P[i] * np.ones(self.mg.number_of_cells)
 
             # Update soil moisture component
-            #TODO need to fudge this so WSA makes a difference. Add a term that increases resistance to evaporation as 
-            #well as reducing root zone leakage in the presence of vegetation. 
             self.current_time = self.SM.update()
 
             # Decide whether its growing season or not (comment this out, think it is irrelevant as the 
@@ -253,9 +248,10 @@ class EcoHyd:
             # Record time (optional)
             self.Time[i] = self.current_time
 
-            #horrific hack to get around time stepping bug
+            #horrific hack to get around time stepping bug and still make sure PET and radiation know about current time
             if self.Time[i-1] < self.Time[i]:
                 self.PET.current_time = self.current_time
+                self.rad.current_time = self.current_time
 
             #print some outputs
             print('soil moisture sat.:', self.mg.at_cell['soil_moisture__saturation_fraction'])
@@ -273,6 +269,11 @@ class EcoHyd:
         WSA_sh_mask[WSA_array == 1] = self.WSA_sh_upper
         WSA_sh_mask = WSA_sh_mask.flatten()
         self.mg.at_cell['surface__WSA_soilhealth'] += (WSA_sh_mask - self.mg.at_cell['surface__WSA_soilhealth'])*0.5 
+
+        #if canicula starts right at the beginning of the model year, record and output biomass at end of year to avoid 
+        # time delay in reporting harvests
+        if self.config['canicula_start'] == 0:
+            biomass = self.mg.at_cell['vegetation__live_biomass'].copy()
 
 
         return biomass, SM_canic_end
