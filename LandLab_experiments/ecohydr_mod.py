@@ -24,9 +24,13 @@ class EcoHyd:
             # Times are all in hours.
             'mean_interstorm_wet':4*24,
             'mean_storm_wet':2*24,
+            'mean_raindpth_wet':2,
             'mean_interstorm_dry':20*24,
-            'mean_storm_dry':2*24
+            'mean_storm_dry':2*24,
+            'mean_raindpth_dry':0.5
         }
+
+        canicula_length = self.config['canicula_end']-self.config['canicula_start']
 
         # Represent current time in years (N.B. this is a float, so 0.5 would be mid-June of the first model year)
         self.current_time = 0  # Start from first day of Jan
@@ -77,11 +81,13 @@ class EcoHyd:
         # (this becomes more obvious if you run the cell and look at the error message).
         self.PD_D = PrecipitationDistribution(self.mg, mean_storm_duration=self.config['mean_storm_dry'], 
                                               mean_interstorm_duration=self.config['mean_interstorm_dry'],
-                                              mean_storm_depth=0.5, total_t=40)
+                                              mean_storm_depth=self.config['mean_raindpth_dry'], 
+                                              total_t=canicula_length)
 
         self.PD_W = PrecipitationDistribution(self.mg, mean_storm_duration=self.config['mean_storm_wet'], 
                                               mean_interstorm_duration=self.config['mean_interstorm_wet'],
-                                              mean_storm_depth=0.5, total_t=325)
+                                              mean_storm_depth=self.config['mean_raindpth_wet'], 
+                                              total_t=365-canicula_length)
 
         #if we choose this way of assigning precipitation, there should then be a `rainfall__flux` field on our grid, although I am not sure 
         #how to access it as it is added to the entire grid rather than individual nodes.
@@ -149,7 +155,7 @@ class EcoHyd:
         self.WSA_sh_lower = 1.
         self.WSA_sh_upper = 1.3
 
-    def stepper(self, WSA_array):
+    def stepper(self, WSA_array, avg_temp, maximum_temp, minimum_temp):
         '''
         Run a one-year loop of the Ecohydrology model at a daily time step.
         '''
