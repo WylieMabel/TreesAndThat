@@ -11,18 +11,18 @@ from soil_moisture_dynamics import SoilMoisture
 
 
 class EcoHyd:
-    def __init__(self):
+    def __init__(self, init_min_T, init_max_T, init_avg_T):
         #self.i = i
         #self.j = j
 
         #TODO might want to make the config file something that is passed in from the outside.
         self.config = {
             # assume Canicula starts on 1st of January and lasts for 100 days
-            'canicula_start':1,
+            'canicula_start':0,
             'canicula_end':100, 
             # I pulled the following out of my behind, need to check with local climatology if this is sensible. 
             # Times are all in hours.
-            'mean_interstorm_wet':5*24,
+            'mean_interstorm_wet':3*24,
             'mean_storm_wet':2*24,
             'mean_interstorm_dry':20*24,
             'mean_storm_dry':2*24
@@ -52,14 +52,14 @@ class EcoHyd:
         valley = np.zeros((53,53))
 
         def valleyfunc(x, y):
-            e = 0.02*(x-25)**2 - 0.02*(y-25)**2 + 60
+            e = 0.01*(x-25)**2 - 0.01*(y-25)**2 + 60
             return e
 
         for x in np.arange(0, 53, 1):
             for y in np.arange(0, 53, 1):
                 valley[y][x] = valleyfunc(x,y)
 
-        valley = np.zeros((53,53))
+        #valley = np.zeros((53,53))
 
         self.mg.add_field("topographic__elevation", valley, at="node", units="m", copy=True, clobber=True) 
         # The elevation field needs to have exactly 
@@ -81,7 +81,7 @@ class EcoHyd:
 
         self.PD_W = PrecipitationDistribution(self.mg, mean_storm_duration=self.config['mean_storm_wet'], 
                                               mean_interstorm_duration=self.config['mean_interstorm_wet'],
-                                              mean_storm_depth=0.5, total_t=325)
+                                              mean_storm_depth=1, total_t=325)
 
         #if we choose this way of assigning precipitation, there should then be a `rainfall__flux` field on our grid, although I am not sure 
         #how to access it as it is added to the entire grid rather than individual nodes.
@@ -103,8 +103,13 @@ class EcoHyd:
         #--------------------------------------------------#
         #instantiate Potential Evapotranspiration Component#
         #TODO set the PET method to Priestley-Taylor once we have temperature inputs (daily Tmax, Tmin, Tavg)
-        self.PET = PotentialEvapotranspiration(self.mg, current_time=self.current_time)
-        self.PET.update() #running this initialises the output fields on the grid (which the soil moisture component needs)
+        self.Tmin = init_min_T
+        self.Tmax = init_max_T
+        self.Tavg = init_avg_T
+        self.PET = PotentialEvapotranspiration(self.mg, method='PriestleyTaylor', current_time=self.current_time,
+                                               Tmin = self.Tmin, Tmax = self.Tmax, Tavg = self.Tavg)
+        self.PET.update() 
+        #running this initialises the output fields on the grid (which the soil moisture component needs)
 
         #-----------------------------------#
         #instantiate Soil Moisture Component#
@@ -213,7 +218,13 @@ class EcoHyd:
 
             # calculate PET for each field based on day of the year
             #TODO read in temperature data for each day and update PET with those
-            self.PET.update(method='PriestleyTaylor', Tmin = minimum_temp[i], Tmax = maximum_temp[i], Tavg = avg_temp[i])
+            self.PET.Tmin = minimum_temp[i]
+            self.PET.Tmax = maximum_temp[i]
+            self.PET.Tavg = avg_temp[i]
+            
+            print(self.PET.current_time)
+            print('input T: ', avg_temp[i])
+            self.PET.update()
 
             # Assign spatial rainfall data
             self.mg.at_cell["rainfall__daily_depth"] = self.P[i] * np.ones(self.mg.number_of_cells)
@@ -241,6 +252,10 @@ class EcoHyd:
 
             # Record time (optional)
             self.Time[i] = self.current_time
+
+            #horrific hack to get around time stepping bug
+            if self.Time[i-1] < self.Time[i]:
+                self.PET.current_time = self.current_time
 
             #print some outputs
             print('soil moisture sat.:', self.mg.at_cell['soil_moisture__saturation_fraction'])

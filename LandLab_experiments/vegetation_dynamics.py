@@ -588,6 +588,8 @@ class Vegetation(Component):
             NPP = max((ActualET[cell] / (Tb + Tr)) * WUE * 24.0 * self._w * 1000, 0.001) * WSA_soilhealth[cell]
 
             if self._vegtype[cell] == 0:
+                #print('PET30: ', PET30_[cell])
+                #print('threshold: ', PETthreshold)
                 if PET30_[cell] > PETthreshold:
                     # Growing Season
                     Bmax = (LAImax - LAIdead) / cb
