@@ -56,6 +56,7 @@ to initialise
   create-fields 2601 [ ; create field agents, one for each patch (to allow links between farmers and patches)
     setxy x y
     set yield 100
+    set implements-WSA 0
     set x x + 1
     if x > max-pxcor [
       set x min-pxcor
@@ -66,20 +67,21 @@ to initialise
   reset-ticks
 end
 
-to allocate-fields ; each field finds closest farmer and creates owner relationship
-  ask fields [
-    let closest-farmer min-one-of farmers [distance myself] ; randomly picks a farmer when two are equidistant
-    set owner-id [who] of closest-farmer
-    create-field-owner-link-with closest-farmer
-  ]
-end
-
 to assign-lead-farmers ; randomly choose lead farmers, and set usingWSA to true
   ask n-of num-lead-farmers farmers [
     set lead-farmer true
     set usingWSA true
     set knowsWSA true
     set nextPractice true
+  ]
+end
+
+to allocate-fields ; each field finds closest farmer and creates owner relationship
+  ask fields [
+    let closest-farmer min-one-of farmers [distance myself] ; randomly picks a farmer when two are equidistant
+    set owner-id [who] of closest-farmer
+    ifelse [usingWSA] of closest-farmer = true [set implements-WSA 1] [set implements-WSA 0]
+    create-field-owner-link-with closest-farmer
   ]
 end
 
@@ -122,8 +124,8 @@ end
 
 to setup
   initialise
-  allocate-fields
   assign-lead-farmers
+  allocate-fields
   find-neighbours
   apply-style-init
   apply-style
@@ -185,7 +187,7 @@ to farming-year ; main model step function
     let farmerIsWSA usingWSA
     ask my-field-owner-links [
       ask other-end [
-        set implements-WSA farmerIsWSA
+        ifelse farmerIsWSA = true [set implements-WSA 1] [set implements-WSA 0]
   ] ] ]
 
   ; f) Apply Style
