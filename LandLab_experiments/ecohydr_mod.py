@@ -52,7 +52,7 @@ class EcoHyd:
         valley = np.zeros((53,53))
 
         def valleyfunc(x, y):
-            e = - 0.02*(x-25)**2 - 0.02*(y-25)**2 + 60
+            e = 0.02*(x-25)**2 - 0.02*(y-25)**2 + 60
             return e
 
         for x in np.arange(0, 53, 1):
@@ -143,8 +143,7 @@ class EcoHyd:
         self.WSA_sh_lower = 1.
         self.WSA_sh_upper = 1.3
 
-
-    def stepper(self, WSA_array):
+    def stepper(self, WSA_array, avg_temp, maximum_temp, minimum_temp):
         '''
         Run a one-year loop of the Ecohydrology model at a daily time step.
         '''
@@ -214,7 +213,7 @@ class EcoHyd:
 
             # calculate PET for each field based on day of the year
             #TODO read in temperature data for each day and update PET with those
-            self.PET.update()
+            self.PET.update(method='PriestleyTaylor', Tmin = minimum_temp[i], Tmax = maximum_temp[i], Tavg = avg_temp[i])
 
             # Assign spatial rainfall data
             self.mg.at_cell["rainfall__daily_depth"] = self.P[i] * np.ones(self.mg.number_of_cells)
