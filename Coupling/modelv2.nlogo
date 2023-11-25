@@ -38,8 +38,8 @@ to initialise
 
   ; default global values (usually manipulated by python)
   set num-lead-farmers 20
-  set desperation-threshold 50
-  set jealousy-tolerance 50
+  set desperation-threshold 0
+  set jealousy-tolerance 5
   set grace-period-length 3
 
   create-farmers 800
