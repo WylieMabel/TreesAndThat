@@ -194,13 +194,13 @@ to farming-year ; main model step function
   apply-style
 
   ; g) force WSA spread
-  ask farmers with [usingWSA = true] [
-    ask my-field-owner-links [
-      ask other-end [
-        set yield 200
-      ]
-    ]
-  ]
+  ;ask farmers with [usingWSA = true] [
+  ;  ask my-field-owner-links [
+  ;    ask other-end [
+  ;      set yield 200
+  ;    ]
+  ;  ]
+  ;]
 
 end
 

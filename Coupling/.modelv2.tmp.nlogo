@@ -187,14 +187,14 @@ to farming-year ; main model step function
     let farmerIsWSA usingWSA
     ask my-field-owner-links [
       ask other-end [
-
+        ifelse farmerIsWSA = true [set implements-WSA 1] [set implements-WSA 0]
   ] ] ]
 
   ; f) Apply Style
   apply-style
 
   ; g) force WSA spread
-  ask farmers with [usingWSA = true] [
+  ;ask farmers with [usingWSA = true] [
     ask my-field-owner-links [
       ask other-end [
         set yield 200
