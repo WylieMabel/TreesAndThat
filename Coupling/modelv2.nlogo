@@ -40,7 +40,7 @@ to initialise
   set num-lead-farmers 20
   set desperation-threshold 0
   set jealousy-tolerance 5
-  set grace-period-length 3
+  set grace-period-length 5
 
   create-farmers 800
   ask farmers [ ; move to unoccupied patches, initialise as non-lead-farmers
@@ -55,7 +55,7 @@ to initialise
   let y min-pycor
   create-fields 2601 [ ; create field agents, one for each patch (to allow links between farmers and patches)
     setxy x y
-    set yield 100
+    set yield 50
     set implements-WSA 0
     set x x + 1
     if x > max-pxcor [

@@ -210,7 +210,9 @@ class EcoHyd:
 
             # At the end of the canicula, harvest WSA fields and set all PFT back to grass
             if Julian == self.config['canicula_end']:
+                print(self.mg.at_cell['vegetation__plant_functional_type'])
                 self.mg.at_cell['vegetation__plant_functional_type'] = functype_growing
+                print(self.mg.at_cell['vegetation__plant_functional_type'])
                 #record soil moisture at end of canicula to see if WSA makes a difference
                 SM_canic_end = self.mg.at_cell['soil_moisture__saturation_fraction'].copy()
                 self.SM.initialize()
@@ -260,11 +262,11 @@ class EcoHyd:
                 self.rad.current_time = self.current_time
 
             #print some outputs
-            print('soil moisture sat.:', self.mg.at_cell['soil_moisture__saturation_fraction'])
-            print('live biomass: ', self.mg.at_cell['vegetation__live_biomass'])
-            print('ET: ', self.mg.at_cell['surface__potential_evapotranspiration_rate'])
-            print('ET30: ', self.mg.at_cell['surface__potential_evapotranspiration_30day_mean'])
-            print('PFT: ', self.mg.at_cell['vegetation__plant_functional_type'])
+            #print('soil moisture sat.:', self.mg.at_cell['soil_moisture__saturation_fraction'])
+            #print('live biomass: ', self.mg.at_cell['vegetation__live_biomass'])
+            #print('ET: ', self.mg.at_cell['surface__potential_evapotranspiration_rate'])
+            #print('ET30: ', self.mg.at_cell['surface__potential_evapotranspiration_30day_mean'])
+            #print('PFT: ', self.mg.at_cell['vegetation__plant_functional_type'])
 
             #write to biomass
             #biomass[i, :] = self.mg.at_cell['vegetation__live_biomass']
