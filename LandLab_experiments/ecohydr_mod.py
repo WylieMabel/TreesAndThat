@@ -24,7 +24,7 @@ class EcoHyd:
             # Times are all in hours.
             'mean_interstorm_wet':4*24,
             'mean_storm_wet':2*24,
-            'mean_raindpth_wet':2,
+            'mean_raindpth_wet':0.5,
             'mean_interstorm_dry':20*24,
             'mean_storm_dry':2*24,
             'mean_raindpth_dry':0.5
@@ -63,7 +63,7 @@ class EcoHyd:
             for y in np.arange(0, 53, 1):
                 valley[y][x] = valleyfunc(x,y)
 
-        #valley = np.zeros((53,53))
+        valley = np.zeros((53,53))
 
         self.mg.add_field("topographic__elevation", valley, at="node", units="m", copy=True, clobber=True) 
         # The elevation field needs to have exactly 
