@@ -124,11 +124,6 @@ end
 
 to setup
   initialise
-  assign-lead-farmers
-  allocate-fields
-  find-neighbours
-  apply-style-init
-  apply-style
 end
 
 
@@ -211,6 +206,11 @@ to update-globals [num-lead-farmers-var desperation-threshold-var jealousy-toler
   set desperation-threshold desperation-threshold-var
   set jealousy-tolerance jealousy-tolerance-var
   set grace-period-length grace-period-length-var
+  assign-lead-farmers
+  allocate-fields
+  find-neighbours
+  apply-style-init
+  apply-style
 end
 
 to-report get-info ; pass information back to python
