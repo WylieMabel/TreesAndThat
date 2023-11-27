@@ -141,7 +141,7 @@ class EcoHyd:
         # WSA_soilhealth by a fixed percentage of that value
         # (e.g., half.). Do the reverse on fields where WSA=False.
         self.WSA_sh_lower = 1.
-        self.WSA_sh_upper = 1.5
+        self.WSA_sh_upper = 1.3
 
         #-------------------------------#
         # initialise output time series #
