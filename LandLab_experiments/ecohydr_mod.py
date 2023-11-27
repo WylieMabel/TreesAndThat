@@ -3,7 +3,6 @@ This is a module for the Ecohydrology model that can be imported from the main d
 '''
 
 import numpy as np
-#import pandas as pd
 from landlab import RasterModelGrid 
 from landlab.components import (Radiation, PotentialEvapotranspiration)
 from generate_uniform_precip import PrecipitationDistribution
@@ -13,8 +12,6 @@ from soil_moisture_dynamics import SoilMoisture
 
 class EcoHyd:
     def __init__(self, config, init_min_T, init_max_T, init_avg_T):
-        #self.i = i
-        #self.j = j
 
         self.config = config
 
@@ -184,11 +181,6 @@ class EcoHyd:
         #generate precipitation time series
         PD_raw = self.PD_D.get_storm_time_series()
         PW_raw = self.PD_W.get_storm_time_series()
-        #P_raw = np.array(P_raw)
-        print(PD_raw)
-        print(len(PD_raw))
-        print(PW_raw)
-        print(len(PW_raw))
 
         #put data into useful format
         self.P = np.zeros(365)
@@ -215,20 +207,8 @@ class EcoHyd:
 
             # Calculate Day of Year
             Julian = int(np.floor((self.current_time - np.floor(self.current_time)) * 365.0))
-            print(Julian)
-            print(self.current_time)
-
-            # Generate seasonal storms
-            # for Dry season
-            """
-            if Julian <= self.config['canicula_end']: 
-                self.PD_D.update()
-                self.P[i] = self.PD_D.storm_depth
-            # Wet Season 
-            else:
-                self.PD_W.update()
-                self.P[i] = self.PD_W.storm_depth
-            """
+            #print(Julian)
+            #print(self.current_time)
 
             # At the start of the canicula, harvest all fields and change the PFT to bare soil on 
             # non-WSA fields and cover crop on WSA fields
@@ -255,10 +235,6 @@ class EcoHyd:
             # calculate radiation for each field based on day of the year
             self.rad.update()
 
-            # Spatially distribute PET and its 30-day-mean (analogous to degree day)
-            #mg["cell"]["surface__potential_evapotranspiration_rate"] = PET_[Julian]
-            #mg["cell"]["surface__potential_evapotranspiration_30day_mean"] = EP30[Julian]
-
             # calculate PET for each field based on day of the year
             self.PET.Tmin = minimum_temp[i]
             self.PET.Tmax = maximum_temp[i]
@@ -270,16 +246,6 @@ class EcoHyd:
 
             # Update soil moisture component
             self.current_time = self.SM.update()
-
-            # Decide whether its growing season or not (comment this out, think it is irrelevant as the 
-            # canicula kind of is this)
-            # if Julian != 364:
-            #    if (Julian > 100 or Julian < 300):
-            #        PET_threshold = 1
-            #        # 1 corresponds to ETThresholdup (begin growing season)
-            #    else:
-            #        PET_threshold = 0
-            #        # 0 corresponds to ETThresholddown (end growing season)
 
             # Update vegetation component
             self.VEG.update()
@@ -308,9 +274,6 @@ class EcoHyd:
             self.ET30_tseries.append(np.mean(self.mg.at_cell['surface__potential_evapotranspiration_30day_mean']))
             self.rain_tseries.append(np.mean(self.mg.at_cell['rainfall__daily_depth']))
             
-            #write to biomass
-            #biomass[i, :] = self.mg.at_cell['vegetation__live_biomass']
-
         # update soil health parameter at the end of the year
         WSA_sh_mask = np.ones(WSA_array.shape)
         WSA_sh_mask[WSA_array == 0] = self.WSA_sh_lower
