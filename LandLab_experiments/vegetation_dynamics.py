@@ -233,7 +233,7 @@ class Vegetation(Component):
         ETthreshold_down=6.8,
         Tdmax=10.0,
         w=0.55,
-        WUE_grass=0.01,
+        WUE_grass=0.001, #divided by 10
         LAI_max_grass=2.0,
         cb_grass=0.0047,
         cd_grass=0.009,
@@ -420,7 +420,7 @@ class Vegetation(Component):
         ETthreshold_down=6.8,
         Tdmax=10.0,
         w=0.55,
-        WUE_grass=0.01,
+        WUE_grass=0.001, #divide by 10
         LAI_max_grass=2.0,
         cb_grass=0.0047,
         cd_grass=0.009,
@@ -586,6 +586,7 @@ class Vegetation(Component):
 
             # scale primary productivity by fudge factor (WSA_soilhealth > 1 if using WSA, 1 otherwise)
             NPP = max((ActualET[cell] / (Tb + Tr)) * WUE * 24.0 * self._w * 1000, 0.001) * WSA_soilhealth[cell]
+            #print(NPP)
 
             if self._vegtype[cell] == 0:
                 #print('PET30: ', PET30_[cell])
