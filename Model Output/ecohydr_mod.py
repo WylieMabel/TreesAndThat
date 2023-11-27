@@ -24,7 +24,7 @@ class EcoHyd:
             # Times are all in hours.
             'mean_interstorm_wet':4*24,
             'mean_storm_wet':2*24,
-            'mean_raindpth_wet':0.5,
+            'mean_raindpth_wet':1,
             'mean_interstorm_dry':20*24,
             'mean_storm_dry':2*24,
             'mean_raindpth_dry':0.5
@@ -56,7 +56,7 @@ class EcoHyd:
         valley = np.zeros((53,53))
 
         def valleyfunc(x, y):
-            e = 0.001*(x-25)**2 - 0.001*(y-25)**2 + 60
+            e = 0.02*(x-25)**2 - 0.02*(y-25)**2 + 60
             return e
 
         for x in np.arange(0, 53, 1):
@@ -184,8 +184,6 @@ class EcoHyd:
 
             # Calculate Day of Year
             Julian = int(np.floor((self.current_time - np.floor(self.current_time)) * 365.0))
-            print(Julian)
-            print(self.current_time)
 
             # Generate seasonal storms
             # for Dry season
