@@ -44,14 +44,14 @@ class EcoHyd:
         valley = np.zeros((53,53))
 
         def valleyfunc(x, y):
-            e = 0.02*(x-25)**2 - 0.02*(y-25)**2 + 60
+            e = 0.05*(x-25)**2 - 0.05*(y-25)**2 + 60
             return e
 
         for x in np.arange(0, 53, 1):
             for y in np.arange(0, 53, 1):
                 valley[y][x] = valleyfunc(x,y)
 
-        #valley = np.zeros((53,53))
+        valley = np.zeros((53,53))
 
         self.mg.add_field("topographic__elevation", valley, at="node", units="m", copy=True, clobber=True) 
         # The elevation field needs to have exactly 
@@ -114,7 +114,7 @@ class EcoHyd:
         self.mg.at_cell['rainfall__daily_depth'] = np.ones(self.mg.number_of_cells) #is 1mm of daily rainfall a valid assumption? How does it 
                                                                         #use this, does it multiply this value with the legth of 
                                                                         #the time step expressed in days?
-        self.mg.at_cell['vegetation__cover_fraction'] = np.ones(self.mg.number_of_cells) #full cover everywhere
+        self.mg.at_cell['vegetation__cover_fraction'] = 0.5*np.ones(self.mg.number_of_cells) #full cover everywhere
         self.mg.at_cell['vegetation__live_leaf_area_index'] = np.ones(self.mg.number_of_cells) #not sure what a sensible value is here.
                                                                                     # from doc:
                                                                                     # one-sided green leaf area per unit ground surface area.
@@ -141,7 +141,7 @@ class EcoHyd:
         # WSA_soilhealth by a fixed percentage of that value
         # (e.g., half.). Do the reverse on fields where WSA=False.
         self.WSA_sh_lower = 1.
-        self.WSA_sh_upper = 1.3
+        self.WSA_sh_upper = 1.5
 
         #-------------------------------#
         # initialise output time series #
@@ -247,9 +247,9 @@ class EcoHyd:
                 self.VEG.initialize(Blive_init=10.0)
 
             # do first harvest at the end of the first maize crop cycle (100 days)
-            if Julian == self.config['canicula_end_expected'] + 100:
-                biomass = self.mg.at_cell['vegetation__live_biomass'].copy()
-                self.VEG.initialize(Blive_init=10.0)
+            #if Julian == self.config['canicula_end_expected'] + 100:
+            #    biomass = self.mg.at_cell['vegetation__live_biomass'].copy()
+            #    self.VEG.initialize(Blive_init=10.0)
                 
             # calculate radiation for each field based on day of the year
             self.rad.update()
@@ -318,7 +318,7 @@ class EcoHyd:
         self.mg.at_cell['surface__WSA_soilhealth'] += (WSA_sh_mask - self.mg.at_cell['surface__WSA_soilhealth'])*0.5 
 
         # assume second crop cycle just always ends at the end of the year 
-        biomass += self.mg.at_cell['vegetation__live_biomass'].copy()
+        biomass = self.mg.at_cell['vegetation__live_biomass'].copy()
 
 
         return biomass, SM_canic_end
