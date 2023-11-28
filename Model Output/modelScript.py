@@ -77,6 +77,12 @@ def convertHydrologyToDF(hydrologyArray, data):
     hydrologyData["yield"] = hydrologyArray.reshape((2601,1))
     return hydrologyData
 
+def summarizeAndWrite(baseFieldData):
+    dataToWrite = baseFieldData.copy()
+    
+    baseFieldData["UniqueID"] = str(datetime.datetime.now())
+
+
 def fullModelRun(leadFarmers, desperation, jealousy, grace, input_csv_path, no_of_years):
     # sets up model
     netlogo = setUpNetLogoModel(leadFarmers, desperation, jealousy, grace)
@@ -138,8 +144,10 @@ def fullModelRun(leadFarmers, desperation, jealousy, grace, input_csv_path, no_o
     baseFieldData["Desperation"] = desperation
     baseFieldData["Jealousy"] = jealousy
     baseFieldData["Grace Period Length"] = grace
-    baseFieldData["UniqueID"] = str(datetime.datetime.now())
     
+    summarizeAndWrite(baseFieldData)
+
+
     # this writes to a csv
     baseFieldData.to_csv(path_or_buf="TestDataRecordingv5", mode = "a", index=False, header = True)
     return baseFieldData, WSA_records, biomass_harvest
