@@ -77,15 +77,9 @@ def convertHydrologyToDF(hydrologyArray, data):
     hydrologyData["yield"] = hydrologyArray.reshape((2601,1))
     return hydrologyData
 
-def summarizeAndWrite(baseFieldData):
-    dataToWrite = baseFieldData.copy()
-    
-    baseFieldData["UniqueID"] = str(datetime.datetime.now())
-
-
-def fullModelRun(leadFarmers, desperation, jealousy, grace, input_csv_path, no_of_years):
+def fullModelRun(climate, leadFarmers, social, input_csv_path, no_of_years):
     # sets up model
-    netlogo = setUpNetLogoModel(leadFarmers, desperation, jealousy, grace)
+    netlogo = setUpNetLogoModel(leadFarmers, social[0], social[1], social[2])
 
     # this will record all field attributes throughout the simulation - need to add year index to differentiate
     baseFieldData = reportsToDataFrame(netlogo)
@@ -96,12 +90,24 @@ def fullModelRun(leadFarmers, desperation, jealousy, grace, input_csv_path, no_o
 
     WSA_records = []
 
-
+    
     #get input temperature data
     avg, maxi, mini = get_yearly_temp(input_csv_path, no_of_years)
+    avg = np.array(avg)
+    maxi = np.array(maxi)
+    mini = np.array(mini)
 
-    Ecohyd_model = EcoHyd(20, 26, 23)
+    Ecohyd_model = EcoHyd(climate, 20, 26, 23)
 
+    #--------------------------------------------#
+    # let hydrology model spin up for five years #
+    for i in range(0,5):
+        #just use same initial WSA array for each year
+        WSA_array = convertWSAToNPArray(returnedData)
+        _,_ = Ecohyd_model.stepper(WSA_array, avg[0]+climate['tempshift'], maxi[0]+climate['tempshift'], mini[0]+climate['tempshift'])
+
+    #---------------------------------#
+    # actual coupled model loop whooo #
     for year in range(0, no_of_years):
         print("year:", year)
 
@@ -109,15 +115,10 @@ def fullModelRun(leadFarmers, desperation, jealousy, grace, input_csv_path, no_o
         WSA_array = convertWSAToNPArray(returnedData)
         WSA_records.append([WSA_array])
 
-        biomass_harvest, SM_canic_end = Ecohyd_model.stepper(WSA_array, avg[year], maxi[year], mini[year])
+        biomass_harvest, SM_canic_end = Ecohyd_model.stepper(WSA_array, avg[year]+climate['tempshift'], maxi[year]+climate['tempshift'], mini[year]+climate['tempshift'])
 
-        fig, ax = plt.subplots(1, 2)
-        title_string = "Year" + str(year)
-        fig.suptitle(title_string)
-        ax[0].imshow(np.reshape(biomass_harvest,(51,51)))
-        ax[0].set_title("Yield")
-        ax[1].imshow(WSA_array)
-        ax[1].set_title("WSA decisions")
+        #record outputs for yearly rainfall
+        cum_rainfall = np.cumsum(Ecohyd_model.rain_tseries[(year)*365:(year+1)*365])[-1]
 
         returnedData.sort_values(by=['ycor', 'xcor'], ascending=[False, True], inplace=True)
 
@@ -137,17 +138,21 @@ def fullModelRun(leadFarmers, desperation, jealousy, grace, input_csv_path, no_o
         
         dataToRecord["Year"] = year + 1
 
+        dataToRecord["TotalYearRainfall"] = cum_rainfall
+
         # adds this years results to the dataframe
         baseFieldData = pd.concat([baseFieldData, dataToRecord], ignore_index=True)
 
-    baseFieldData["Lead Farmers"] = leadFarmers
-    baseFieldData["Desperation"] = desperation
-    baseFieldData["Jealousy"] = jealousy
-    baseFieldData["Grace Period Length"] = grace
+    summarisedData = baseFieldData.groupby(["owner-id","Year"]).agg({'xcor':'mean','ycor':'mean','implements-WSA':'mean','owner-knows-WSA':'mean', 'yield':'sum', 'who':'count'}).reset_index()
+    summarisedData.rename(columns={'owner-id':'FarmerID', 'xcor':'MeanXCor', 'ycor':'MeanYCor', 'implements-WSA':'ImplementingWSA','owner-knows-WSA':'KnowsWSA','yield':'TotalYield','who':'NumberofFields'})
+
+    summarisedData["LeadFarmers"] = leadFarmers
+    summarisedData["SocialScenario"] = social[3]
+    if climate['mean_raindpth_wet'] == 10:
+        summarisedData["ClimateScenario"] = "Current Climate"
+    else:
+        summarisedData["ClimateScenario"] = "Warm Climate"
+    summarisedData["UniqueID"] = str(datetime.datetime.now())
     
-    summarizeAndWrite(baseFieldData)
-
-
     # this writes to a csv
-    baseFieldData.to_csv(path_or_buf="TestDataRecordingv5", mode = "a", index=False, header = True)
-    return baseFieldData, WSA_records, biomass_harvest
+    summarisedData.to_csv(path_or_buf="sampleModelOutput", mode = "a", index=False, header = True)
