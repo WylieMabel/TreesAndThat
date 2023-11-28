@@ -28,6 +28,7 @@ fields-own [
   yield
   owner-id ; [who] of owner
   implements-WSA ; owner uses WSA? (needed to pass info to python)
+  owner-knows-WSA ; owner knows WSA?
 ]
 
 
@@ -57,6 +58,7 @@ to initialise
     setxy x y
     set yield 50
     set implements-WSA 0
+    set owner-knows-WSA 0
     set x x + 1
     if x > max-pxcor [
       set x min-pxcor
@@ -180,9 +182,11 @@ to farming-year ; main model step function
   ; e) Put Info Onto Fields (needed for python)
   ask farmers [
     let farmerIsWSA usingWSA
+    let farmerKnowsWSA knowsWSA
     ask my-field-owner-links [
       ask other-end [
         ifelse farmerIsWSA = true [set implements-WSA 1] [set implements-WSA 0]
+        ifelse farmerKnowsWSA = true [set owner-knows-WSA 1] [set owner-knows-WSA 0]
   ] ] ]
 
   ; f) Apply Style
@@ -214,7 +218,7 @@ to update-globals [num-lead-farmers-var desperation-threshold-var jealousy-toler
 end
 
 to-report get-info ; pass information back to python
-  report [(list who xcor ycor owner-id implements-WSA yield)] of fields
+  report [(list who xcor ycor owner-id implements-WSA owner-knows-WSA yield)] of fields
 end
 
 
