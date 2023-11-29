@@ -199,7 +199,7 @@ class EcoHyd:
             if end_day <= 365:
                 self.P[start_day:end_day+1] = PW_raw[i][2]*24  
 
-        print(self.P)      
+        #print(self.P)      
 
 
         for i in range(0, 365):
