@@ -39,7 +39,7 @@ class EcoHyd:
         valley = np.zeros((53,53))
 
         def valleyfunc(x, y):
-            e = 0.001*(x-25)**2 - 0.001*(y-25)**2 + 60
+            e = 0.08*(x-25)**2 - 0.08*(y-25)**2 + 60
             return e
 
         for x in np.arange(0, 53, 1):
