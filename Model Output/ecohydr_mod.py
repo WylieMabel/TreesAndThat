@@ -53,15 +53,8 @@ class EcoHyd:
         # this name in order for components to be 
         # able to work with it.
 
-        #############################
+        #---------------------------#
         #generate precipitation data#
-        #############################
-
-        #'''
-        #Commenting this out because it assigns things to the grid. Current implementation needs just an array though.
-        # N.B. to make this (grid-based implementation of precipitation) run, find the 'generate_uniform_precip.py' file in your 
-        # LandLab distribution, and add a 'clobber=True' statement to the self.grid.add_field() call in L185 
-        # (this becomes more obvious if you run the cell and look at the error message).
         self.PD_D = PrecipitationDistribution(self.mg, mean_storm_duration=self.config['mean_storm_dry'], 
                                               mean_interstorm_duration=self.config['mean_interstorm_dry'],
                                               mean_storm_depth=self.config['mean_raindpth_dry'], 
@@ -71,18 +64,6 @@ class EcoHyd:
                                               mean_interstorm_duration=self.config['mean_interstorm_wet'],
                                               mean_storm_depth=self.config['mean_raindpth_wet'], 
                                               total_t=(365-self.canicula_length)*24)
-
-        #if we choose this way of assigning precipitation, there should then be a `rainfall__flux` field on our grid, although I am not sure 
-        #how to access it as it is added to the entire grid rather than individual nodes.
-        #'''
-
-        '''
-        PD_D = PrecipitationDistribution(mean_storm_duration=config['mean_storm_dry'], mean_interstorm_duration=config['mean_interstorm_dry'],
-                                        mean_storm_depth=0.5, total_t=40)
-
-        PD_W = PrecipitationDistribution(mean_storm_duration=config['mean_storm_wet'], mean_interstorm_duration=config['mean_interstorm_wet'],
-                                        mean_storm_depth=0.5, total_t=325)
-        '''
 
         #-------------------------------#
         #instantiate radiation component#
