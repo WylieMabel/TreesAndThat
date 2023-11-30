@@ -492,7 +492,7 @@ class SoilMoisture(Component):
         evap_inhib_cc=3.0, #this is unique to CC PFT - substituted in for intercept cap in evaporative processes
         zr_cc=0.15,
         I_B_cc=20.0,
-        I_V_cc=20.0, #soil infiltration capacity; make this higher than grass, but not as high as shrubs
+        I_V_cc=20.0, #soil infiltration capacity
         pc_cc=0.43,
         fc_cc=0.56,
         sc_cc=0.33,
@@ -739,7 +739,7 @@ class SoilMoisture(Component):
             else:
                 self._runoff[cell] = 0.0
 
-            if sini >= fc: #if initial saturation smaller than soil saturation at field capacity, calculate soil leakage rate
+            if sini >= fc: #if initial saturation greater than soil saturation at field capacity, calculate soil leakage rate
                 #time left to spend beyond field capacity?
                 tfc = (1.0 / (beta * (mu - nu))) * (
                     beta * (fc - sini)

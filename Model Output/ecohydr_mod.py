@@ -21,9 +21,7 @@ class EcoHyd:
         self.current_time = 0  # Start from first day of Jan
         self.n=365 # length of single model loop in days
 
-        # declaring few variables that will be used in the storm loop
         self.WS = 0.0  # Buffer for Water Stress
-        self.Tg = 270  # Growing season in days
 
         #initialise some of the timeseries 
 

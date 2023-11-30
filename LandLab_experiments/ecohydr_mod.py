@@ -21,10 +21,8 @@ class EcoHyd:
         self.current_time = 0  # Start from first day of Jan
         self.n=365 # length of single model loop in days
 
-        # declaring few variables that will be used in the storm loop
         self.WS = 0.0  # Buffer for Water Stress
-        self.Tg = 270  # Growing season in days
-
+        
         #initialise some of the timeseries 
 
         self.P = np.zeros(self.n) #empty array for rainfall
@@ -41,7 +39,7 @@ class EcoHyd:
         valley = np.zeros((53,53))
 
         def valleyfunc(x, y):
-            e = 0.001*(x-25)**2 - 0.001*(y-25)**2 + 60
+            e = 0.08*(x-25)**2 - 0.08*(y-25)**2 + 60
             return e
 
         for x in np.arange(0, 53, 1):
@@ -88,7 +86,7 @@ class EcoHyd:
 
         #-------------------------------#
         #instantiate radiation component#
-        self.rad = Radiation(self.mg, current_time=self.current_time)
+        self.rad = Radiation(self.mg, current_time=self.current_time, latitude=10.)
         self.rad.update()
 
         #--------------------------------------------------#
