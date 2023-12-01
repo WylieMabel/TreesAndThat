@@ -12,6 +12,8 @@ The contents of this folder are:
  - test_ecohydro_module.ipynb is a notebook we used to run and explore the ecohydrological model on its own. Note 
    that to get output for multiple years, you have to run the cell that calls Ecohyd_model.stepper() multiple times.
    (running this once triggers a 365 daily time steps). 
+ - data_analysis.ipynb is a noteboook with some examples of how we created figures for our report, the csv read in are not
+   contained in this folder but can be found in the repository
 
 To run the model from the driver, you need to be in a Python environment that has the Landlab, Pynetlogo and multiprocessing
 libraries installed (as well as all the default stuff such as numpy, time etc.).
