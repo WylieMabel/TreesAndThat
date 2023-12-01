@@ -71,8 +71,7 @@ def convertWSAToNPArray(data):
     return emptynp
 
 def convertHydrologyToDF(hydrologyArray, data):
-    # method converts the hydrology model output into a pandas dataframer
-    # 2 is the placeholder to multiply the biomass to get yield
+    # method converts the hydrology model output into a pandas dataframe
     hydrologyData = data.copy()
     hydrologyData["yield"] = hydrologyArray.reshape((2601,1))
     return hydrologyData
